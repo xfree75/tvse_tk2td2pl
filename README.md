@@ -1,10 +1,10 @@
-# tvse_torrentkim2plex
+# tvse_tk2td2pl
 python script. running by crontab.
 
 ## contained two python script.
 
 ### First script (html parsing and download torrent file)
-- check new epsoide: torrentkim html parsing by config(keywords).
+- check new epsoide: tor\*\*\*\*k\*\* html parsing by config(keywords).
 - download torrent file: https client.
 - copy to watch-dir.
 - remove old torrent files.
