@@ -17,5 +17,7 @@ python script. running by crontab.
 - search file useing TV Show series-name, episode-number, season-number(option, nullable)
 - modify filename by config: plex season Naming 'Series' & 'Season' Based TV Shows.
 - copy to plex library path(by config with {series_title}/Season XX/{series_title} - sXXeYY.ext)
+- control status json file.
+- control queue json file: It needs real downloaded file name. It is not torrent file name.
 - set to crontab: every minutes.
 
