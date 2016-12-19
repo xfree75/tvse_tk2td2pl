@@ -6,6 +6,8 @@ ff_tune=film
 ff_preset=veryfast
 ff_crf=23
 ff_threads=0
+ff_vwscale=1280
+vwscale_set=false
 
 
 ##
@@ -40,6 +42,11 @@ function printhelp(){
 	echo "                          기본 값은 ${ff_crf} 입니다. 자세한 옵션은 ffmpeg 도움말을 참고하십시오."
 	echo "    --ff-threads <number> ffmpeg 실행 시 threads option으로 전달 됩니다."
 	echo "                          기본 값은 ${ff_threads} 입니다. 자세한 옵션은 ffmpeg 도움말을 참고하십시오."
+	echo "    --ff-vwscale <number> ffmpeg 실행 시 vf scale option의 넓이 값(-vf scale=1280:1)으로 전달 됩니다."
+	echo "                          기본 값은 ${ff_vwscale} 입며 원본 영상의 넓이가 더 작은 경우 자동으로 조정 됩니다."
+	echo "                          이 옵션을 사용하지 않을 경우 mediainfo가 설치 되어 있어야 합니다."
+	echo "                          macOS에서는 'brew install mediainfo' 명령어로 설치 할 수 있습니다."
+	echo "                          Debian 계열 배포판에서는 'sudo apt install mediainfo' 명령어로 설치 할 수 있습니다."
 	echo "   "
 	exit 0
 }
@@ -113,6 +120,11 @@ do
 			ovf=true
 			co="--ff-threads"
 		fi
+		if [ "${targ}" == "--ff-vwscale" ]; then
+			ovf=true
+			co="--ff-vwscale"
+			vwscale_set=true
+		fi
 
 	else
 		#echo "Value: ${targ}"
@@ -149,6 +161,11 @@ do
 			fi
 			if [ "${co}" == "--ff-threads" ]; then
 				ff_threads=${targ}
+				ovf=false
+				co=
+			fi
+			if [ "${co}" == "--ff-vwscale" ]; then
+				ff_vwscale=${targ}
 				ovf=false
 				co=
 			fi
@@ -212,6 +229,28 @@ echo "Target video file: [${targetpath}/${targetname}]."
 #vbit_rate_value=`echo ${vbit_rate_str} | sed -e "s/Kbps//g" | sed -e "s/\ //g"`
 #echo "video bit rate value(k): ${vbit_rate_value}"
 
+# get source video scale(width)
+if [ "${vwscale_set}" == false ]; then
+	# mediainfo 가 설치 되어 있는지 확인.
+	absmediainfo=$(which mediainfo)
+	absmediainfo=$(mreadlink "${absmediainfo}")
+	if [ "${absmediainfo}" == "" ]; then
+		echo "Can't found mediainfo. Please insatall mediainfo. See help(--help)."
+		exit -1
+	else
+		if [ ! -x "${absmediainfo}" ]; then
+			echo "Fatal ERROR: Can't execute mediainfo."
+			exit -1
+		fi
+	fi
+	vwscale_str=`mediainfo --Output=XML "${abspath}" | xmllint --xpath "/Mediainfo/File/track[@type='Video']/Width/text()" -`
+	vwscale_value=`echo ${vwscale_str} | sed -e "s/pixels//g" | sed -e "s/\ //g"`
+	echo "vwscale_value: ${vwscale_value}"
+	if [[ ${vwscale_value} -lt ${ff_vwscale} ]]; then
+		ff_vwscale=${vwscale_value}
+	fi
+
+fi
 
 command0="cp \
 	    \"${abspath}\" \
@@ -227,13 +266,13 @@ command1="ffmpeg \
 	   -ac 2 \
 	   -b:a 300k \
 	   -vcodec libx264 \
-	   -preset veryfast \
+	   -preset ${ff_preset} \
 	   -level 3.0 \
-	   -crf 23 \
-	   -tune film \
+	   -crf ${ff_crf} \
+	   -tune ${ff_tune} \
 	   -r 23.976 \
-	   -vf scale=1280:-1 \
-	   -threads 0 \
+	   -vf scale=${ff_vwscale}:-1 \
+	   -threads ${ff_threads} \
 	   -strict -2 \
 	   \"${ffmpeg_tmp}/___tmp.m4v\""
 
@@ -267,6 +306,7 @@ fi
 if [ "${no_interact}" == false ]; then
 	read -n 1 -p "Continue? [y/n]: "
 	if [[ ! ${REPLY} == [yY] ]]; then
+		echo -e "\n"
 		exit 0
 	fi
 fi
