@@ -1,37 +1,181 @@
 #!/bin/bash
 #set -x
 
-#ffmpeg_tmp=~/ffmpeg/tmp
-ffmpeg_tmp=/tmp/ffmpeg
-max_bit_rate=2048
+
+ff_tune=film
+ff_preset=veryfast
+ff_crf=23
+ff_threads=0
+
+
+##
+ # my read link function.
+ ##
+function mreadlink(){
+    dirname=`perl -e 'use Cwd "abs_path";print abs_path(shift)' "$1"`
+    echo ${dirname}
+}
+
+##
+ #
+ ##
+function printhelp(){
+	echo "사용법: ${0} [--options] file"
+	echo "여기서 options는 다음과 같습니다."
+	echo "    --help                이 도움말을 표시 합니다."
+	echo "    --no-interact         작업을 진행할지 물어 보지 않습니다."
+	echo "    --rm-source           작업이 완료 되면 원본 비디오 파일을 제거 합니다."
+	echo "    --over-write          생성할 파일이 이미 존재하여도 덮어 씁니다."
+	echo "    --tmp-path <path>     변환 작업을 위한 임시 경로 입니다."
+	echo "                          기본 경로는 /tmp 입니다."
+	echo "                          작업 경로는 원본 파일 크기 + 변환될 파일 크기 만큼 필요 합니다."
+	echo "                          작업이 완료되면 작업 파일은 삭제 됩니다. (오류 발생시 남게 됨)."
+	echo "    --out-path <path>     인코딩 된 파일을 저장할 경로입니다."
+	echo "    --out-name <name>     인코딩 된 파일을 저장할 이름입니다."
+	echo "    --ff-tune <value>     ffmpeg 실행 시 tune option으로 전달 됩니다."
+	echo "                          기본 값은 ${ff_tune} 입니다. 자세한 옵션은 ffmpeg 도움말을 참고하십시오."
+	echo "    --ff-preset <value>   ffmpeg 실행 시 preset option으로 전달 됩니다."
+	echo "                          기본 값은 ${ff_preset} 입니다. 자세한 옵션은 ffmpeg 도움말을 참고하십시오."
+	echo "    --ff-crf <number>     ffmpeg 실행 시 crf option으로 전달 됩니다."
+	echo "                          기본 값은 ${ff_crf} 입니다. 자세한 옵션은 ffmpeg 도움말을 참고하십시오."
+	echo "    --ff-threads <number> ffmpeg 실행 시 threads option으로 전달 됩니다."
+	echo "                          기본 값은 ${ff_threads} 입니다. 자세한 옵션은 ffmpeg 도움말을 참고하십시오."
+	echo "   "
+	exit 0
+}
+
+tmpbase=/tmp
 
 # check arguments
+ovf=false
+co=
+no_interact=false
+rm_source=false
+over_write=false
+arg_outpath=
+arg_outname=
+
+if [[ "$#" == 0 ]]; then
+	printhelp
+fi
+
 for targ in "$@"
 do
 	if  [[ ${targ} == --* ]];
 	then
-		echo "Option: ${targ}"
+		#echo "Option: ${targ}"
+		if [ "${targ}" == "--help" ]; then
+			rm_source=true
+			ovf=false
+			co=
+			printhelp
+		fi
+		if [ "${targ}" == "--no-interact" ]; then
+			no_interact=true
+			ovf=false
+			co=
+		fi
+		if [ "${targ}" == "--rm-source" ]; then
+			rm_source=true
+			ovf=false
+			co=
+		fi
+		if [ "${targ}" == "--over-write" ]; then
+			over_write=true
+			ovf=false
+			co=
+		fi
+		if [ "${targ}" == "--tmp-path" ]; then
+			ovf=true
+			co="--tmp-path"
+		fi
+		if [ "${targ}" == "--out-path" ]; then
+			ovf=true
+			co="--out-path"
+		fi
+		if [ "${targ}" == "--out-name" ]; then
+			ovf=true
+			co="--out-name"
+		fi
+		if [ "${targ}" == "--ff-tune" ]; then
+			ovf=true
+			co="--ff-tune"
+		fi
+		if [ "${targ}" == "--ff-preset" ]; then
+			ovf=true
+			co="--ff-preset"
+		fi
+		if [ "${targ}" == "--ff-crf" ]; then
+			ovf=true
+			co="--ff-crf"
+		fi
+		if [ "${targ}" == "--ff-threads" ]; then
+			ovf=true
+			co="--ff-threads"
+		fi
+
 	else
-		echo "Value: ${targ}"
+		#echo "Value: ${targ}"
+		if [ "${ovf}" = true ]; then
+			if [ "${co}" == "--tmp-path" ]; then
+				tmpbase=${targ}
+				ovf=false
+				co=
+			fi
+			if [ "${co}" == "--out-path" ]; then
+				arg_outpath=${targ}
+				ovf=false
+				co=
+			fi
+			if [ "${co}" == "--out-name" ]; then
+				arg_outname=${targ}
+				ovf=false
+				co=
+			fi
+			if [ "${co}" == "--ff-tune" ]; then
+				ff_tune=${targ}
+				ovf=false
+				co=
+			fi
+			if [ "${co}" == "--ff-preset" ]; then
+				ff_preset=${targ}
+				ovf=false
+				co=
+			fi
+			if [ "${co}" == "--ff-crf" ]; then
+				ff_crf=${targ}
+				ovf=false
+				co=
+			fi
+			if [ "${co}" == "--ff-threads" ]; then
+				ff_threads=${targ}
+				ovf=false
+				co=
+			fi
+		else
+			argsource=${targ}
+		fi
 	fi
 
 done
 
-#exit 0
+# 작업 경로.
+tmp_time=`date "+%Y%m%d_%H%M.%s"`
+ffmpeg_tmp=${tmpbase}/ffmpegtmp.${tmp_time}.${RANDOM}
 
-filename=`basename "$1"`
+
+
+filename=`basename "${argsource}"`
 #filename2=`echo ${filename} | sed -e "s/ /\\\\\ /g" | sed -e "s/(/\\\\\(/g" | sed -e "s/)/\\\\\)/g"`
-abspath=`readlink -f "$1"`
-#abspath2=`echo ${abspath} | sed -e "s/ /\\\\\ /g" | sed -e "s/(/\\\\\(/g" | sed -e "s/)/\\\\\)/g"`
+#abspath=`readlink -f "$1"`
+abspath=$(mreadlink "${argsource}")
 sourcepath=`dirname "${abspath}"`
-#sourcepath2=`echo ${sourcepath} | sed -e "s/ /\\\\\ /g" | sed -e "s/(/\\\\\(/g" | sed -e "s/)/\\\\\)/g"`
-
 
 if [ -f "${abspath}" ]
 then
-	echo "${abspath} found."
+	echo "Source video file [${abspath}] found."
 else
-	echo "${abspath} not found."
+	echo "Source vodeo file [${abspath}] not found."
 	exit -1
 fi
 
@@ -42,51 +186,95 @@ fi
 
 ext=`echo ${filename##*.}`
 name=`echo ${filename%.*}`
-#name2=`echo ${name} | sed -e "s/ /\\\\\ /g" | sed -e "s/(/\\\\\(/g" | sed -e "s/)/\\\\\)/g"`
+
+# 출력 경로 및 이름 인지가 있다면 지정 한다.
+targetpath=${sourcepath}
+targetname=${name}.m4v
+if [ ! -z "${arg_outpath}" ]; then
+	targetpath=$(mreadlink "${arg_outpath}")
+fi
+if [ ! -z "${arg_outname}" ]; then
+	targetname=${arg_outname}
+fi
+
+
+if [ "${over_write}" == false ]; then
+	if [ -f "${targetpath}/${targetname}" ]; then
+		echo -e "Target video file [${targetpath}/${targetname}] already exist.\n     You can use this option: [--over-write]."
+		exit -1
+	fi
+fi
+echo "Target video file: [${targetpath}/${targetname}]."
 
 # get source video bit_rate
-vbit_rate_str=`mediainfo --Output=XML "${abspath}" | xmllint --xpath "/Mediainfo/File/track[@type='Video']/Bit_rate/text()" -`
+#vbit_rate_str=`mediainfo --Output=XML "${abspath}" | xmllint --xpath "/Mediainfo/File/track[@type='Video']/Bit_rate/text()" -`
 #echo "video Bit_rate value string: ${vbit_rate_str}"
-vbit_rate_value=`echo ${vbit_rate_str} | sed -e "s/Kbps//g" | sed -e "s/\ //g"`
+#vbit_rate_value=`echo ${vbit_rate_str} | sed -e "s/Kbps//g" | sed -e "s/\ //g"`
 #echo "video bit rate value(k): ${vbit_rate_value}"
 
-if [ ${vbit_rate_value} -gt ${max_bit_rate} ]
-then
-	vbit_rate_value=${max_bit_rate}
-fi
 
-ffmpeg_tmp_dev_num=`stat -c "%d" "${ffmpeg_tmp}"`
-source_path_dev_num=`stat -c "%d" "${sourcepath}"`
+command0="cp \
+	    \"${abspath}\" \
+	    \"${ffmpeg_tmp}/\""
 
-command0="cp \"${abspath}\" \"${ffmpeg_tmp}\""
 
-#command1="ffmpeg -y -i \"${ffmpeg_tmp}/${filename}\" -acodec aac -ab 192k -ar 48000 -ac 2 -b:a 300k -vcodec libx264 -preset fast -level 30 -b:v ${vbit_rate_value}k -r 29.97 -s 1280:720 -threads 0 -strict -2 \"${ffmpeg_tmp}/${name}.m4v\""
-#command1="ffmpeg -y -i \"${ffmpeg_tmp}/${filename}\" -acodec aac -ab 192k -ar 48000 -ac 2 -b:a 300k -vcodec libx264 -preset veryfast -level 30 -crf 27 -r 23.976 -s 1280:720 -threads 0 -strict -2 \"${ffmpeg_tmp}/${name}.m4v\""
-command1="ffmpeg -y -i \"${ffmpeg_tmp}/${filename}\" -acodec aac -ab 192k -ar 48000 -ac 2 -b:a 300k -vcodec libx264 -preset veryfast -level 3.0 -crf 23 -r 23.976 -s 1280:720 -threads 0 -strict -2 \"${ffmpeg_tmp}/${name}.m4v\""
+command1="ffmpeg \
+	   -y \
+	   -i \"${ffmpeg_tmp}/${filename}\" \
+	   -acodec aac \
+	   -ab 192k \
+	   -ar 48000 \
+	   -ac 2 \
+	   -b:a 300k \
+	   -vcodec libx264 \
+	   -preset veryfast \
+	   -level 3.0 \
+	   -crf 23 \
+	   -tune film \
+	   -r 23.976 \
+	   -vf scale=1280:-1 \
+	   -threads 0 \
+	   -strict -2 \
+	   \"${ffmpeg_tmp}/___tmp.m4v\""
 
-if [ ${ffmpeg_tmp_dev_num} -eq ${source_path_dev_num} ]
-then 
-	command2="mv \"${ffmpeg_tmp}/${name}.m4v\" \"${sourcepath}\""
-	echo "It is going to move to sourcepath by exec mv commnad."
-else
-	command2="cp \"${ffmpeg_tmp}/${name}.m4v\" \"${sourcepath}\" && rm -rf \"${ffmpeg_tmp}/${name}.m4v\""
-	echo "It is going to move to sourcepath by exec cp && rm commnad."
-fi
+
+command2="cp \
+	    \"${ffmpeg_tmp}/___tmp.m4v\" \
+	    \"${targetpath}/${targetname}\" \
+	    && rm -rf \
+	    \"${ffmpeg_tmp}/___tmp.m4v\""
+
 
 # remove copyed original file
-command3="rm -f \"${ffmpeg_tmp}/${filename}\""
+command3="rm -f \
+	    \"${ffmpeg_tmp}/${filename}\""
 
 echo -e "================================================================================"
-echo -e "command0: ${command0}\n"
+echo -e "Command-0: ${command0}" | tr '\t' '\n' 
 echo -e "================================================================================"
-echo -e "command1: ${command1}\n"
+echo -e "Command-1: ${command1}" | tr '\t' '\n'
 echo -e "================================================================================"
-echo -e "command2: ${command2}\n"
+echo -e "Command-2: ${command2}" | tr '\t' '\n' 
 echo -e "================================================================================"
-echo -e "command3: ${command3}\n"
+echo -e "Command-3: ${command3}" | tr '\t' '\n' 
 echo -e "================================================================================"
+if [ "${rm_source}" == true ]; then
+	command4="rm -f \"${abspath}\""
+	echo -e "Command-4: ${command4}" | tr '\t' '\n' 
+	echo -e "================================================================================"
+fi
 
-eval ${command0} && eval ${command1} && eval ${command2} && eval ${command3}
+if [ "${no_interact}" == false ]; then
+	read -n 1 -p "Continue? [y/n]: "
+	if [[ ! ${REPLY} == [yY] ]]; then
+		exit 0
+	fi
+fi
 
+if [ "${rm_source}" == true ]; then
+	eval ${command0} && eval ${command1} && eval ${command2} && eval ${command3} && eval ${command4}
+else
+	eval ${command0} && eval ${command1} && eval ${command2} && eval ${command3}
+fi
 exit 0
 
