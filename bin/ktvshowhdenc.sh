@@ -311,7 +311,7 @@ command2="cp \
 	    && rm -rf \
 	    \"${ffmpeg_tmp}/___tmp.m4v\" \
 	    && rm -rf \
-	    \"${ffmpeg_tmp}"
+	    \"${ffmpeg_tmp}\""
 
 
 # remove copyed original file
