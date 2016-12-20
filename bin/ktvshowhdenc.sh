@@ -205,7 +205,8 @@ do
 
 done
 
-#TODO: 생성된지 3일 이상 된 작업경로를 제거 한다.
+# 생성된지 3일 이상 된 작업경로를 제거 한다.
+find ${tmpbase} -type d -name "ffmpegtmp*" -ctime +3 -exec rm -rf {} ';'
 
 # 작업 경로.
 tmp_time=`date "+%Y%m%d_%H%M.%s"`
