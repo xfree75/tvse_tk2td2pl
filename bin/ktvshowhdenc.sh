@@ -2,6 +2,7 @@
 #set -x
 
 
+tmpbase=/tmp
 ff_tune=film
 ff_preset=slow
 ff_crf=20
@@ -29,7 +30,7 @@ function printhelp(){
 	echo "    --rm-source           작업이 완료 되면 원본 비디오 파일을 제거 합니다."
 	echo "    --over-write          생성할 파일이 이미 존재하여도 덮어 씁니다."
 	echo "    --tmp-path <path>     변환 작업을 위한 임시 경로 입니다."
-	echo "                          기본 경로는 /tmp 입니다."
+	echo "                          기본 경로는 ${tmpbase} 입니다."
 	echo "                          작업 경로는 원본 파일 크기 + 변환될 파일 크기 만큼 필요 합니다."
 	echo "                          작업이 완료되면 작업 파일은 삭제 됩니다. (오류 발생시 남게 됨)."
 	echo "    --out-path <path>     인코딩 된 파일을 저장할 경로입니다."
@@ -51,7 +52,35 @@ function printhelp(){
 	exit 0
 }
 
-tmpbase=/tmp
+##
+ # time format?
+ ##
+function show_time(){
+    num=$1
+    min=0
+    hour=0
+    day=0
+    if((num>59));then
+        ((sec=num%60))
+        ((num=num/60))
+        if((num>59));then
+            ((min=num%60))
+            ((num=num/60))
+            if((num>23));then
+                ((hour=num%24))
+                ((day=num/24))
+            else
+                ((hour=num))
+            fi
+        else
+            ((min=num))
+        fi
+    else
+        ((sec=num))
+    fi
+    echo "$day"d "$hour"h "$min"m "$sec"s
+}
+
 
 # check arguments
 ovf=false
@@ -176,6 +205,8 @@ do
 
 done
 
+#TODO: 생성된지 3일 이상 된 작업경로를 제거 한다.
+
 # 작업 경로.
 tmp_time=`date "+%Y%m%d_%H%M.%s"`
 ffmpeg_tmp=${tmpbase}/ffmpegtmp.${tmp_time}.${RANDOM}
@@ -277,7 +308,9 @@ command2="cp \
 	    \"${ffmpeg_tmp}/___tmp.m4v\" \
 	    \"${targetpath}/${targetname}\" \
 	    && rm -rf \
-	    \"${ffmpeg_tmp}/___tmp.m4v\""
+	    \"${ffmpeg_tmp}/___tmp.m4v\" \
+	    && rm -rf \
+	    \"${ffmpeg_tmp}"
 
 
 # remove copyed original file
@@ -307,10 +340,20 @@ if [ "${no_interact}" == false ]; then
 	fi
 fi
 
+
+# 실행 시작 시간 기록
+start_stamp=`date "+%s"`
+
 if [ "${rm_source}" == true ]; then
 	eval ${command0} && eval ${command1} && eval ${command2} && eval ${command3} && eval ${command4}
 else
 	eval ${command0} && eval ${command1} && eval ${command2} && eval ${command3}
 fi
+
+# 실행 종료 시간 기록 및 출력
+finish_stamp=`date "+%s"`
+r=`expr ${finish_stamp} - ${start_stamp}`
+echo "Completed! ${r} seconds ($(show_time ${r}))"
+
 exit 0
 
