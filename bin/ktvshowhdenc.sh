@@ -45,9 +45,10 @@ function printhelp(){
 	echo "                          기본 값은 ${ff_threads} 입니다. 자세한 옵션은 ffmpeg 도움말을 참고하십시오."
 	echo "    --ff-vwscale <number> ffmpeg 실행 시 vf scale option의 넓이 값(-vf scale=1280:1)으로 전달 됩니다."
 	echo "                          기본 값은 ${ff_vwscale} 입며 원본 영상의 넓이가 더 작은 경우 자동으로 조정 됩니다."
-	echo "                          이 옵션을 사용하지 않을 경우 mediainfo가 설치 되어 있어야 합니다."
-	echo "                          macOS에서는 'brew install mediainfo' 명령어로 설치 할 수 있습니다."
-	echo "                          Debian 계열 배포판에서는 'sudo apt install mediainfo' 명령어로 설치 할 수 있습니다."
+	echo "   "
+	echo "이 스크립트는 mediainfo가 설치 되어 있어야 합니다."
+	echo "macOS에서는 'brew install mediainfo' 명령어로 설치 할 수 있습니다."
+	echo "Debian 계열 배포판에서는 'sudo apt install mediainfo' 명령어로 설치 할 수 있습니다."
 	echo "   "
 	exit 0
 }
@@ -261,25 +262,32 @@ echo "Target video file: [${targetpath}/${targetname}]."
 #vbit_rate_value=`echo ${vbit_rate_str} | sed -e "s/Kbps//g" | sed -e "s/\ //g"`
 #echo "video bit rate value(k): ${vbit_rate_value}"
 
-# get source video scale(width)
-if [ "${vwscale_set}" == false ]; then
-	# mediainfo 가 설치 되어 있는지 확인.
-	absmediainfo=$(which mediainfo)
-	absmediainfo=$(mreadlink "${absmediainfo}")
-	if [ "${absmediainfo}" == "" ]; then
-		echo "Can't found mediainfo. Please insatall mediainfo. See help(--help)."
+
+# mediainfo 가 설치 되어 있는지 확인.
+absmediainfo=$(which mediainfo)
+absmediainfo=$(mreadlink "${absmediainfo}")
+if [ "${absmediainfo}" == "" ]; then
+	echo "Can't found mediainfo. Please insatall mediainfo. See help(--help)."
+	exit -1
+else
+	if [ ! -x "${absmediainfo}" ]; then
+		echo "Fatal ERROR: Can't execute mediainfo."
 		exit -1
-	else
-		if [ ! -x "${absmediainfo}" ]; then
-			echo "Fatal ERROR: Can't execute mediainfo."
-			exit -1
-		fi
 	fi
-	vwscale_str=`mediainfo --Output=XML "${abspath}" | xmllint --xpath "/Mediainfo/File/track[@type='Video']/Width/text()" -`
-	vwscale_value=`echo ${vwscale_str} | sed -e "s/pixels//g" | sed -e "s/\ //g"`
-	echo "vwscale_value: ${vwscale_value}"
-	if [[ ${vwscale_value} -lt ${ff_vwscale} ]]; then
-		ff_vwscale=${vwscale_value}
+fi
+
+svideo_size=`mediainfo --Inform="General;%FileSize%" "${abspath}"`
+svideo_durt=`mediainfo --Inform="General;%Duration%" "${abspath}"`
+svideo_scle=`mediainfo --Inform="Video;%Width%" "${abspath}"`
+svideo_durt_sec=`expr ${svideo_durt} / 1000`
+
+# get source video scale(width) via mediainfo
+if [ "${vwscale_set}" == false ]; then
+	#vwscale_str=`echo "${mediainfoxml}" | xmllint --xpath "/Mediainfo/File/track[@type='Video']/Width/text()" -`
+	#vwscale_value=`echo ${vwscale_str} | sed -e "s/pixels//g" | sed -e "s/\ //g"`
+	#echo "vwscale_value: ${vwscale_value}"
+	if [[ ${svideo_scle} -lt ${ff_vwscale} ]]; then
+		ff_vwscale=${vwscale_val}
 	fi
 
 fi
@@ -292,7 +300,10 @@ command0="cp \
 command1="ffmpeg \
 	   -y \
 	   -i \"${ffmpeg_tmp}/${filename}\" \
-	   -acodec ac3 -ar 48000 -ab 384k -ac 6 \
+	   -acodec ac3 \
+	   -ar 48000 \
+	   -ab 384k \
+	   -ac 6 \
 	   -vcodec libx264 \
 	   -preset ${ff_preset} \
 	   -level 3.0 \
@@ -354,7 +365,28 @@ fi
 # 실행 종료 시간 기록 및 출력
 finish_stamp=`date "+%s"`
 r=`expr ${finish_stamp} - ${start_stamp}`
-echo "Completed! ${r} seconds ($(show_time ${r}))"
+
+# 생성된 파일 크기 확인
+ovideo_size=$(wc -c < "${targetpath}/${targetname}")
+
+#svideo_size=`mediainfo --Inform="General;%FileSize%" "${abspath}"`
+#svideo_durt=`mediainfo --Inform="General;%Duration%" "${abspath}"`
+#svideo_durt_sec=`expr ${svideo_durt} / 100`
+
+# 배속 계산
+xspeed=`echo "${svideo_durt_sec} / ${r}" | bc -l`
+
+# 초당 처리한 바이트: Source and Output
+sbps=`expr ${svideo_size} / ${r}`
+obps=`expr ${ovideo_size} / ${r}`
+
+echo -e "\n"
+echo -e "================================================================================"
+echo -e "Completed! $(printf "%'.0f" $(echo ${r})) seconds ($(show_time ${r}))"
+echo -e "Encoding speed: $(printf "%'.3f" $(echo ${xspeed})) X."
+echo -e "Byte(Source decoding, Output encoding)/sec: $(printf "%'.0f" $(echo ${sbps}))byte/s, $(printf "%'.0f" $(echo ${obps}))byte/s"
+echo -e "================================================================================"
+echo -e "\n"
 
 exit 0
 
