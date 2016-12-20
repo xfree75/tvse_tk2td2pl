@@ -4,7 +4,7 @@
 
 tmpbase=/tmp
 ff_tune=film
-ff_preset=slow
+ff_preset=medium
 ff_crf=20
 ff_threads=0
 ff_vwscale=1280
@@ -291,7 +291,7 @@ command0="cp \
 command1="ffmpeg \
 	   -y \
 	   -i \"${ffmpeg_tmp}/${filename}\" \
-	   -acodec ac3 -ar 48000 -ab 640k -ac 6 \
+	   -acodec ac3 -ar 48000 -ab 384 -ac 6 \
 	   -vcodec libx264 \
 	   -preset ${ff_preset} \
 	   -level 3.0 \
