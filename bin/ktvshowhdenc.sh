@@ -3,8 +3,8 @@
 
 
 ff_tune=film
-ff_preset=veryfast
-ff_crf=23
+ff_preset=slow
+ff_crf=20
 ff_threads=0
 ff_vwscale=1280
 vwscale_set=false
@@ -260,11 +260,7 @@ command0="cp \
 command1="ffmpeg \
 	   -y \
 	   -i \"${ffmpeg_tmp}/${filename}\" \
-	   -acodec aac \
-	   -ab 192k \
-	   -ar 48000 \
-	   -ac 2 \
-	   -b:a 300k \
+	   -acodec ac3 -ar 48000 -ab 640k -ac 6 \
 	   -vcodec libx264 \
 	   -preset ${ff_preset} \
 	   -level 3.0 \
