@@ -1,8 +1,14 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 
-from bs4 import BeautifulSoup
-import os, sys, logging, time, random, string
+
+import os
+import sys
+import logging
+import time
+import random
+import json
 import http.client
+from bs4 import BeautifulSoup
 
 #print(os.path.isdir("/home/el"))
 #print(os.path.exists("/home/el/myfile.txt"))
@@ -10,7 +16,7 @@ import http.client
 #logging.basicConfig(filename='example.log',level=logging.DEBUG)
 #logging.basicConfig(level=logging.WARNING)
 logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(os.path.basename(__file__))
+LOGGER = logging.getLogger(os.path.basename(__file__))
 
 
 def constant(f):
@@ -23,31 +29,37 @@ def constant(f):
 
 class _Const(object):
     @constant
-    def RESOURCE_NAME():
+    def resource_name():
         return "tvsea"
+    @constant
+    def feedlib_path_name():
+        return "feedlib"
+    @constant
+    def dramafeedlib_name():
+        return "drama.json"
 
 CONST = _Const()
 
 def checkrspath():
-    home_path = os.path.expanduser("~")
-    rspath = home_path + "/." + CONST.RESOURCE_NAME + "/"
-    logger.info("Resource name: {}".format(CONST.RESOURCE_NAME))
-    logger.info("Resource path: {}".format(rspath))
+    global rspath
+    rspath = os.path.join(os.path.expanduser("~"), "." + CONST.resource_name)
+    LOGGER.info("Resource name: {}".format(CONST.resource_name))
+    LOGGER.info("Resource path: {}".format(rspath))
     
     # check for exist resource path.
     if not os.path.exists(rspath):
         os.makedirs(rspath)
-        logger.warning("[{}] is not exist.".format(rspath))
+        LOGGER.warning("[{}] is not exist.".format(rspath))
         sys.exit()
     elif not os.path.isdir(rspath):
-        logger.warning("ERROR! {} is not directory!".format(rspath))
+        LOGGER.warning("ERROR! {} is not directory!".format(rspath))
         sys.exit()
     elif os.path.isdir(rspath):
-        logger.debug("[{}] path is exist OK.".format(rspath))
+        LOGGER.debug("[{}] path is exist OK.".format(rspath))
 
     
 def checkqueuefile():
-    logger.info("xxxxxxx");
+    LOGGER.info("xxxxxxx");
 
 ##
  # html을 실제 파싱하고 object로 변환 한다.
@@ -55,23 +67,23 @@ def checkqueuefile():
 def listhtml2obj(htmlstring):
     #htmllinearr = htmlstring.splitlines(True)
     #linelen = len(htmllinearr)
-    #logger.debug("html line length: {}".format(linelen))
+    #LOGGER.debug("html line length: {}".format(linelen))
     #for line in htmllinearr:
     soup = BeautifulSoup(htmlstring, "lxml")
     soup_listsubjects = soup('a', {'class':'list_subject',})
-    logger.debug("list_subject element: {}".format(str(soup_listsubjects)))
+    LOGGER.debug("list_subject element: {}".format(str(soup_listsubjects)))
     listidx = 0
     torrcontentlist = []
     for ahref in soup_listsubjects:
         listidx = listidx + 1 
         hrefval = ahref['href']
         # skip: rel="nofollow"
-        #logger.debug("tag.attrs: {}".format(ahref.attrs))
+        #LOGGER.debug("tag.attrs: {}".format(ahref.attrs))
         if 'rel' in ahref.attrs:
             relval = ahref['rel']
-            #logger.debug("relval: {}".format(relval))
+            #LOGGER.debug("relval: {}".format(relval))
             if relval[0] == "nofollow": continue
-        logger.debug("content url path[{:0>2d}]: {}: {}".format(listidx, hrefval, ahref.string))
+        LOGGER.debug("content url path[{:0>2d}]: {}: {}".format(listidx, hrefval, ahref.string))
         torrcontent = {}
         torrcontent['title'] = ahref.string
         torrcontent['url'] = "https://m.torrentkim5.net/" + hrefval
@@ -87,31 +99,47 @@ def getKtvDramaList():
     torrcontentlist = []
     conn = http.client.HTTPSConnection("m.torrentkim5.net")
     #TODO: range는 설정하고, 계산하여 처리 하도록 해야함.
-    for pagenum in range(1, 4):
+    for pagenum in range(1, 2):
+
+        '''if pagenum == 1:
+            ransleep = random.random()*100
+            LOGGER.debug("sleep: {}".format(ransleep))
+            time.sleep(ransleep)'''
+
         urlpath = "/bc.php?bo_table=torrent_tv&page=" + str(pagenum)
-        logger.debug("content list path: {}".format(urlpath))
-        conn.request("GET", "/bc.php?bo_table=torrent_tv&page=" + str(pagenum))
+        LOGGER.debug("content list path: {}".format(urlpath))
+        conn.request("GET", urlpath)
         r1 = conn.getresponse()
-        logger.debug("Status: {}, Reason: {}".format(r1.status, r1.reason))
+        LOGGER.debug("Status: {}, Reason: {}".format(r1.status, r1.reason))
         if r1.status == 200:
             data1 = r1.read()
             torrcontentlist = torrcontentlist +listhtml2obj(data1)
             # 바깥 for loop 를 설정에 의해 제어하도록 하면서, 이곳의 값도 그 값을 가지고 처리 하도록 변경 해야 한다.
             if pagenum == 3: break
             ransleep = random.random()*10
-            logger.debug("sleep: {}".format(ransleep))
+            LOGGER.debug("sleep: {}".format(ransleep))
             time.sleep(ransleep)
 
     conn.close()
     return torrcontentlist
 
-def main():
-    checkrspath();
-    checkqueuefile();
-    threepagelist = getKtvDramaList();
-    logger.debug("Three page's list: {}".format(str(threepagelist)))
+def saveJsonArticle(listobj, type):
+    formatedJsonStr = json.dumps(listobj, indent=4, sort_keys=False, ensure_ascii=False)
+    LOGGER.debug("Formatted json: {}".format(formatedJsonStr))
+    feedlib_path = os.path.join(rspath, CONST.feedlib_path_name, CONST.dramafeedlib_name)
+    f = open(feedlib_path, 'w')
+    f.write(formatedJsonStr)
+    f.close()
 
-main();
+def main():
+    checkrspath()
+    checkqueuefile()
+    recentDramaList = getKtvDramaList()
+    LOGGER.debug("Three page's list: {}".format(str(recentDramaList)))
+    saveJsonArticle(recentDramaList, "drama")
+
+if __name__ == "__main__":
+    main()
 
 
 """
