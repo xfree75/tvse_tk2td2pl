@@ -310,7 +310,7 @@ command1="ffmpeg \
 	   -crf ${ff_crf} \
 	   -tune ${ff_tune} \
 	   -r 23.976 \
-	   -vf scale=${ff_vwscale}:-1 \
+	   -vf scale=${ff_vwscale}:trunc\(ow/a/2\)*2 \
 	   -threads ${ff_threads} \
 	   -strict -2 \
 	   \"${ffmpeg_tmp}/___tmp.m4v\""

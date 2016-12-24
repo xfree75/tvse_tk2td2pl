@@ -99,7 +99,7 @@ def getKtvDramaList():
     torrcontentlist = []
     conn = http.client.HTTPSConnection("m.torrentkim5.net")
     #TODO: range는 설정하고, 계산하여 처리 하도록 해야함.
-    for pagenum in range(1, 2):
+    for pagenum in range(1, 4):
 
         '''if pagenum == 1:
             ransleep = random.random()*100
