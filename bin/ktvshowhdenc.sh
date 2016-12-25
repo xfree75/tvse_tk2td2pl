@@ -300,10 +300,10 @@ command0="cp \
 command1="ffmpeg \
 	   -y \
 	   -i \"${ffmpeg_tmp}/${filename}\" \
-	   -acodec ac3 \
-	   -ar 48000 \
+	   -acodec aac \
 	   -ab 384k \
-	   -ac 6 \
+	   -ar 48000 \
+	   -ac 2 \
 	   -vcodec libx264 \
 	   -preset ${ff_preset} \
 	   -level 3.0 \

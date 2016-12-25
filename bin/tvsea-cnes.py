@@ -7,6 +7,7 @@ import logging
 import time
 import random
 import json
+import time
 import http.client
 from bs4 import BeautifulSoup
 
@@ -37,6 +38,15 @@ class _Const(object):
     @constant
     def dramafeedlib_name():
         return "drama.json"
+    @constant
+    def kidsfeedlib_name():
+        return "kids.json"
+    @constant
+    def entertainmentfeedlib_name():
+        return "entertainment.json"
+    @constant
+    def documentaryfeedlib_name():
+        return "documentary.json"
 
 CONST = _Const()
 
@@ -95,18 +105,18 @@ def listhtml2obj(htmlstring):
  # 목록 html들을 받아오고 parsing 한 후 object로 반환 하게 한다.
  # TODO: host, path, list-pagenum 을 환경 설정으로 처리 한다.
  ##
-def getKtvDramaList():
+def getKtvList(bo_table_value):
     torrcontentlist = []
     conn = http.client.HTTPSConnection("m.torrentkim5.net")
     #TODO: range는 설정하고, 계산하여 처리 하도록 해야함.
     for pagenum in range(1, 4):
 
-        '''if pagenum == 1:
+        if pagenum == 1:
             ransleep = random.random()*100
             LOGGER.debug("sleep: {}".format(ransleep))
-            time.sleep(ransleep)'''
+            time.sleep(ransleep)
 
-        urlpath = "/bc.php?bo_table=torrent_tv&page=" + str(pagenum)
+        urlpath = "/bc.php?bo_table="+bo_table_value+"&page=" + str(pagenum)
         LOGGER.debug("content list path: {}".format(urlpath))
         conn.request("GET", urlpath)
         r1 = conn.getresponse()
@@ -126,17 +136,50 @@ def getKtvDramaList():
 def saveJsonArticle(listobj, type):
     formatedJsonStr = json.dumps(listobj, indent=4, sort_keys=False, ensure_ascii=False)
     LOGGER.debug("Formatted json: {}".format(formatedJsonStr))
-    feedlib_path = os.path.join(rspath, CONST.feedlib_path_name, CONST.dramafeedlib_name)
+    feedlib_path = os.path.join(rspath, CONST.feedlib_path_name, type)
     f = open(feedlib_path, 'w')
     f.write(formatedJsonStr)
     f.close()
 
+def checkRecentUpdate():
+    current = time.time()
+    LOGGER.debug("Current time: {}".format(current))
+    last_modified_date = 0
+    mtime = 0
+    for file in os.listdir(os.path.join(rspath, CONST.feedlib_path_name)):
+        if file.endswith(".json"):
+            libfile = os.path.join(rspath, CONST.feedlib_path_name, file)
+            try:
+                mtime = os.path.getmtime(libfile)
+            except OSError:
+                mtime = 0
+                
+            difftime = (current - mtime) / 180
+            LOGGER.debug("Current feed update time: {}. Diff(min): {}.".format(mtime, difftime))
+            
+            if difftime < 60:
+                LOGGER.info("Already updated just before {0:.2f}(min). Skip update feedlib. ".format(difftime))
+                return False
+    return True
+    
+def updatefeed():
+    if not checkRecentUpdate():
+        return
+    
+    bo_table_drama = "torrent_tv"
+    bo_table_kids = "torrent_child"
+    bo_table_entertainment = "torrent_variety"
+    bo_table_documentary= "torrent_docu"
+    
+    saveJsonArticle(getKtvList(bo_table_drama)        , CONST.dramafeedlib_name)
+    saveJsonArticle(getKtvList(bo_table_kids)         , CONST.kidsfeedlib_name)
+    saveJsonArticle(getKtvList(bo_table_entertainment), CONST.entertainmentfeedlib_name)
+    saveJsonArticle(getKtvList(bo_table_documentary)  , CONST.documentaryfeedlib_name)
+
 def main():
     checkrspath()
     checkqueuefile()
-    recentDramaList = getKtvDramaList()
-    LOGGER.debug("Three page's list: {}".format(str(recentDramaList)))
-    saveJsonArticle(recentDramaList, "drama")
+    updatefeed()
 
 if __name__ == "__main__":
     main()
