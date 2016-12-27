@@ -183,9 +183,11 @@ def updatefeed():
     saveJsonArticle(getKtvList(bo_table_documentary)  , CONST.documentaryfeedlib_name)
 
 def getLastEpsoideNumberAtPlex(season_root):
+    ##TODO: 마지막 번호를 구해서 반환. 파일이 없다면. None을 반환.
     return None
     
 def getLastEpsoideDateAtPlex(season_root):
+    ##TODO: 마지막 날짜를 구해서 반환. 파일이 없다면. None을 반환.
     return None
     
 def getLastEpsoideNumber(season_root, series_key, epsode_id_type):
