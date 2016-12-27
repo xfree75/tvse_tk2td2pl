@@ -8,6 +8,9 @@ import time
 import random
 import json
 import time
+import glob
+import codecs
+import yaml
 import http.client
 from bs4 import BeautifulSoup
 
@@ -35,6 +38,9 @@ class _Const(object):
     @constant
     def feedlib_path_name():
         return "feedlib"
+    @constant
+    def seriesdef_path_name():
+        return "seriesdef"
     @constant
     def dramafeedlib_name():
         return "drama.json"
@@ -176,10 +182,60 @@ def updatefeed():
     saveJsonArticle(getKtvList(bo_table_entertainment), CONST.entertainmentfeedlib_name)
     saveJsonArticle(getKtvList(bo_table_documentary)  , CONST.documentaryfeedlib_name)
 
+def getLastEpsoideNumberAtPlex(season_root):
+    return None
+    
+def getLastEpsoideDateAtPlex(season_root):
+    return None
+    
+def getLastEpsoideNumber(season_root, series_key, epsode_id_type):
+    # 에피소드 다운로드 정보 json 파일이 있는지 확인 한다.
+    epdfile = os.path.join(rspath, CONST.seriesdef_path_name, str(series_key) + "_epd.json")
+    if os.path.isfile(epdfile):
+        # 파일이 있다면, 읽어서 마지막 에피소드 정보를 반환 한다.
+        LOGGER.debug("Found epdfile: {}.".format(epdfile))
+    else:
+        # 파일이 없다면, season root path를 읽어서 마지막 값을 반환 한다.
+        LOGGER.debug("Search: {}".format(season_root))
+        if epsode_id_type == "date":
+            return getLastEpsoideDateAtPlex(season_root)
+        elif epsode_id_type == "number":
+            return getLastEpsoideDateAtPlex(season_root)
+        else:
+            return None
+    
+def discoveryEpsoidesFromAllFeed(dy, fls):
+    ed = yaml.load(codecs.open(dy, "r", "utf-8"))
+    LOGGER.debug("Current series is \"{} ({})\".".format(ed["series_name"], ed["release_year"]))
+    
+    plexlib_path = ed["plexlib_season_root"]
+    feedinfo = ed["feed"]
+    serieskey = ed["series_key"]
+    eptype = feedinfo["epsode_id_type"]
+    getLastEpsoideNumber(plexlib_path, serieskey, eptype)
+    #keys = ed.feed.necessary_title_keywords
+    
+    
+def findNewEpsoides():
+    ## feedlib/*.json 파일들을 읽어 들인다.
+    feedlibs = []
+    for feedfile in glob.glob(os.path.join(rspath, CONST.feedlib_path_name) + '/*.json'):
+        ff = open(feedfile, 'r')
+        feedlibs = feedlibs + json.loads(ff.read())
+        ff.close()
+    
+    LOGGER.debug("feedlibs length: {}".format(len(feedlibs)))
+    
+    ## seriesdef/*.def.yaml 파일들을 읽어 들인다.
+    for name in glob.glob(os.path.join(rspath, CONST.seriesdef_path_name) + '/*.def.yaml'):
+        LOGGER.debug("Feed list file: {}".format(name))
+        discoveryEpsoidesFromAllFeed(name, feedlibs)
+    
 def main():
     checkrspath()
     checkqueuefile()
     updatefeed()
+    findNewEpsoides()
 
 if __name__ == "__main__":
     main()
