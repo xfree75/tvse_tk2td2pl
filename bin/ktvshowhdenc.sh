@@ -287,7 +287,7 @@ if [ "${vwscale_set}" == false ]; then
 	#vwscale_value=`echo ${vwscale_str} | sed -e "s/pixels//g" | sed -e "s/\ //g"`
 	#echo "vwscale_value: ${vwscale_value}"
 	if [[ ${svideo_scle} -lt ${ff_vwscale} ]]; then
-		ff_vwscale=${vwscale_val}
+		ff_vwscale=${svideo_scle}
 	fi
 
 fi
