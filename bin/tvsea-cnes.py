@@ -11,8 +11,12 @@ import time
 import glob
 import codecs
 import yaml
+import copy
 import http.client
+import ntpath
+from os.path import basename
 from bs4 import BeautifulSoup
+from datetime import datetime
 
 #print(os.path.isdir("/home/el"))
 #print(os.path.exists("/home/el/myfile.txt"))
@@ -163,7 +167,7 @@ def checkRecentUpdate():
             difftime = (current - mtime) / 180
             LOGGER.debug("Current feed update time: {}. Diff(min): {}.".format(mtime, difftime))
             
-            if difftime < 60:
+            if difftime < 180:
                 LOGGER.info("Already updated just before {0:.2f}(min). Skip update feedlib. ".format(difftime))
                 return False
     return True
@@ -182,15 +186,43 @@ def updatefeed():
     saveJsonArticle(getKtvList(bo_table_entertainment), CONST.entertainmentfeedlib_name)
     saveJsonArticle(getKtvList(bo_table_documentary)  , CONST.documentaryfeedlib_name)
 
-def getLastEpsoideNumberAtPlex(season_root):
-    ##TODO: 마지막 번호를 구해서 반환. 파일이 없다면. None을 반환.
-    return None
+def getLastEpsoideNumberAtPlex(season_root, seriesname, seasonnumber):
+    ##TODO: 마지막 번호를 구해서 반환. 파일조차 없다면. None을 반환.
+    videoList = glob.glob(os.path.join(season_root, seriesname + "*"))
+    LOGGER.debug("{}'s video file count: {}".format(seriesname, str(len(videoList))))
+
+    if len(videoList) == 0:
+        return None
+
+    epnumlist = []
+    for aep in videoList:
+        aep1 = ntpath.basename(aep).split('.')[0]
+        aep2 = aep1.replace(seriesname, "", 1)
+        aep3 = aep2.split('-')[1].strip()
+        aep4 = aep3.replace("s" + str(seasonnumber) + "e", "", 1)
+        #LOGGER.debug("    - name: [{}]".format(aep4))
+        epnumlist.append(aep4)
+
+    return max(epnumlist) 
     
-def getLastEpsoideDateAtPlex(season_root):
-    ##TODO: 마지막 날짜를 구해서 반환. 파일이 없다면. None을 반환.
-    return None
+def getLastEpsoideDateAtPlex(season_root, seriesname):
+    ##TODO: 마지막 날짜를 구해서 반환. 파일조차 없다면. None을 반환.
+    videoList = glob.glob(os.path.join(season_root, seriesname + "*"))
+    LOGGER.debug("{}'s video file count: {}".format(seriesname, str(len(videoList))))
+
+    if len(videoList) == 0:
+        return None
+
+    epdatelist = []
+    for aep in videoList:
+        aep1 = ntpath.basename(aep).split('.')[0]
+        aep2 = aep1.replace(seriesname, "", 1).replace(" - ", "", 1).strip()
+        LOGGER.debug("    - name: [{}]".format(aep2))
+        epdatelist.append(aep2)
+
+    return max(epdatelist) 
     
-def getLastEpsoideNumber(season_root, series_key, epsode_id_type):
+def getLastEpsoideId(season_root, series_key, epsode_id_type, seriesname, seasonnumber):
     # 에피소드 다운로드 정보 json 파일이 있는지 확인 한다.
     epdfile = os.path.join(rspath, CONST.seriesdef_path_name, str(series_key) + "_epd.json")
     if os.path.isfile(epdfile):
@@ -200,22 +232,132 @@ def getLastEpsoideNumber(season_root, series_key, epsode_id_type):
         # 파일이 없다면, season root path를 읽어서 마지막 값을 반환 한다.
         LOGGER.debug("Search: {}".format(season_root))
         if epsode_id_type == "date":
-            return getLastEpsoideDateAtPlex(season_root)
+            return getLastEpsoideDateAtPlex(season_root, seriesname)
         elif epsode_id_type == "number":
-            return getLastEpsoideDateAtPlex(season_root)
+            return getLastEpsoideNumberAtPlex(season_root, seriesname, seasonnumber)
         else:
             return None
+
+def titleSplit(title):
+    s1 = title.upper().split()
+
+    s2 = list()
+    for w in s1:
+        s2.extend(w.split("."))
+
+    s3 = list()
+    for w in s2:
+        s3.extend(w.split("-"))
+
+    s4 = list()
+    for w in s3:
+        s4.extend(w.split("_"))
+
+    LOGGER.debug("s4: {}".format(s4))
+    return s4
+
+def checkNewEpByDate(leid, title):
+    leiddt = datetime.strptime(leid, "%Y-%m-%d")
+    dateformats = ["%y%m%d", "%y.%m.%d", "%y-%m-%d", "%Y%m%d", "%Y.%m.%d", "%Y-%m-%d"]
+    now = datetime.now()
+    s4 = titleSplit(title)
+    for w in s4:
+        for df in dateformats:
+            val = None
+            try:
+                ## 여려 format의 날짜 변환을 시도해 본다. 변환된 날짜가 과거 1개월 이내 이어야 한다.
+                dto = datetime.strptime(w, df)
+                LOGGER.debug("w to datetime_object: {} -> {} / {}".format(w, dto, df))
+                delta = now - dto
+                LOGGER.debug("diff date: {} days".format(delta.days))
+                if delta.days < 32 and delta.days > -1:
+                    if dto > leiddt:
+                        dstr = dto.strftime("%Y-%m-%d")
+                        LOGGER.debug("return new episode date: [{}]".format(dstr))
+                        return dstr
+            except ValueError as e:
+                #LOGGER.warn("{}".format(e))
+                continue 
+
+    return None
+
+def checkNewEpByNumber(leid, title):
+    s4 = titleSplit(title)
+    for w in s4:
+        if w.startswith("E"):
+            epnum = w.split("E")[-1]
+            try:
+                val = int(epnum)
+                if int(leid) < val:
+                    LOGGER.info("return new episode number: e[{}]".format(val))
+                    return val
+            except TypeError as e:
+                LOGGER.warn("TypeError word[{}, {}]: {}".format(w, epnum, e))
+                continue
+            except ValueError as e:
+                LOGGER.warn("ValueError word[{}, {}]: {}".format(w, epnum, e))
+                continue
+
+            LOGGER.debug("E start word: {}".format(w))
+    return None
+
+def discoveryAndDownload(ed, leid, feedlibs):
+    feed = ed["feed"]
+    title_keywords = feed["necessary_title_keywords"]
+    epsode_id_type = feed["epsode_id_type"]
+
+    match1feeds = list()
+    for nfs in feedlibs:
+        matched = True
+        for tk in title_keywords:
+            if nfs["title"].upper().find(tk.upper()) < 0:
+                matched = False
+        if matched:
+            match1feeds.append(nfs)
+
+    LOGGER.debug("match1feeds size: {}".format(len(match1feeds)))
+
+    match2feeds = list()
+    ## 검색된 것이 새로운 에피소드인지 확인 한다.
+    for ffs in match1feeds:
+        LOGGER.debug("matched: {}".format(ffs["title"]))
+        if epsode_id_type == "date":
+            epid = checkNewEpByDate(leid, ffs["title"])
+            if not epid == None:
+                ffs["epid"] = epid
+                ffs["ed"] = ed
+                match2feeds.append(ffs)
+        elif epsode_id_type == "number":
+            epid = checkNewEpByNumber(leid, ffs["title"])
+            if not epid == None:
+                ffs["epid"] = epid
+                ffs["ed"] = ed
+                match2feeds.append(ffs)
+
+    LOGGER.debug("match2feeds size: {}".format(len(match2feeds)))
+
+    ##TODO: 같은 에피소드끼리 묶어서 우선순위가 높은 것 하나만 선택하는 작업을 한다.
+    LOGGER.debug("==========")
     
-def discoveryEpsoidesFromAllFeed(dy, fls):
+    
+def discoveryEpsoidesFromAllFeed(dy, feedlibs):
     ed = yaml.load(codecs.open(dy, "r", "utf-8"))
     LOGGER.debug("Current series is \"{} ({})\".".format(ed["series_name"], ed["release_year"]))
     
     plexlib_path = ed["plexlib_season_root"]
     feedinfo = ed["feed"]
     serieskey = ed["series_key"]
+    seriesname = ed["series_name"]
+    seasonnumber = ed["season_number"]
     eptype = feedinfo["epsode_id_type"]
-    getLastEpsoideNumber(plexlib_path, serieskey, eptype)
+    leid = getLastEpsoideId(plexlib_path, serieskey, eptype, seriesname, seasonnumber)
+    LOGGER.info("Last epsoid id: {}".format(leid))
     #keys = ed.feed.necessary_title_keywords
+    ##TODO: 받아야 할 모든 항목을 feed-json에서 확인
+    ##TODO:  - keyword로 찾은 다음. epsoide 번호 기준 새로운 항목을 확인.
+    ##TODO: 새로운 항목은 torrent 파일을 다운로드 받아 추가.
+    ##TODO: 다운로드 정보 파일에 정보를 추가.
+    discoveryAndDownload(ed, leid, feedlibs)
     
     
 def findNewEpsoides():
