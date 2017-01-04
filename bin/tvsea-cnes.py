@@ -17,6 +17,7 @@ import ntpath
 from os.path import basename
 from bs4 import BeautifulSoup
 from datetime import datetime
+from dateutil.relativedelta import relativedelta
 
 #print(os.path.isdir("/home/el"))
 #print(os.path.exists("/home/el/myfile.txt"))
@@ -164,7 +165,7 @@ def checkRecentUpdate():
             except OSError:
                 mtime = 0
                 
-            difftime = (current - mtime) / 180
+            difftime = (current - mtime) / 60
             LOGGER.debug("Current feed update time: {}. Diff(min): {}.".format(mtime, difftime))
             
             if difftime < 180:
@@ -211,7 +212,9 @@ def getLastEpsoideDateAtPlex(season_root, seriesname):
     LOGGER.debug("{}'s video file count: {}".format(seriesname, str(len(videoList))))
 
     if len(videoList) == 0:
-        return None
+        ## 1년전? 여튼 엄청 과거의 값을 반환 하도록 한다.
+        ayearago = datetime.now() - relativedelta(years=1)
+        return ayearago.strftime("%Y-%m-%d")
 
     epdatelist = []
     for aep in videoList:
@@ -253,10 +256,13 @@ def titleSplit(title):
     for w in s3:
         s4.extend(w.split("_"))
 
-    LOGGER.debug("s4: {}".format(s4))
+    #LOGGER.debug("s4: {}".format(s4))
     return s4
 
 def checkNewEpByDate(leid, title):
+    if not leid:
+        leid = "2016-01-01"
+    
     leiddt = datetime.strptime(leid, "%Y-%m-%d")
     dateformats = ["%y%m%d", "%y.%m.%d", "%y-%m-%d", "%Y%m%d", "%Y.%m.%d", "%Y-%m-%d"]
     now = datetime.now()
@@ -273,7 +279,7 @@ def checkNewEpByDate(leid, title):
                 if delta.days < 32 and delta.days > -1:
                     if dto > leiddt:
                         dstr = dto.strftime("%Y-%m-%d")
-                        LOGGER.debug("return new episode date: [{}]".format(dstr))
+                        #LOGGER.debug("return new episode date: [{}]".format(dstr))
                         return dstr
             except ValueError as e:
                 #LOGGER.warn("{}".format(e))
@@ -289,7 +295,7 @@ def checkNewEpByNumber(leid, title):
             try:
                 val = int(epnum)
                 if int(leid) < val:
-                    LOGGER.info("return new episode number: e[{}]".format(val))
+                    #LOGGER.debug("return new episode number: e[{}]".format(val))
                     return val
             except TypeError as e:
                 LOGGER.warn("TypeError word[{}, {}]: {}".format(w, epnum, e))
@@ -320,7 +326,7 @@ def discoveryAndDownload(ed, leid, feedlibs):
     match2feeds = list()
     ## 검색된 것이 새로운 에피소드인지 확인 한다.
     for ffs in match1feeds:
-        LOGGER.debug("matched: {}".format(ffs["title"]))
+        #LOGGER.debug("matched: {}".format(ffs["title"]))
         if epsode_id_type == "date":
             epid = checkNewEpByDate(leid, ffs["title"])
             if not epid == None:
@@ -336,7 +342,23 @@ def discoveryAndDownload(ed, leid, feedlibs):
 
     LOGGER.debug("match2feeds size: {}".format(len(match2feeds)))
 
-    ##TODO: 같은 에피소드끼리 묶어서 우선순위가 높은 것 하나만 선택하는 작업을 한다.
+    ## 우선순위가 높은 것 하나만 선택하는 작업을 위해 같은 에피소드끼리 묶는다.
+    match3feedDic = {}
+    for f2f in match2feeds:
+        epid = f2f["epid"]
+        if not epid in match3feedDic:
+            neplist = []
+            neplist.append(f2f)
+            match3feedDic[epid] = neplist
+            LOGGER.debug("match3feedDic - new: [{}] {}".format(epid, len(match3feedDic[epid])))
+        else:
+            neplist = match3feedDic.get(epid)
+            neplist.append(f2f)
+            LOGGER.debug("match3feedDic - add: [{}] {}".format(epid, len(match3feedDic[epid])))
+    
+    #LOGGER.debug("{}".format(json.dumps(match3feedDic, indent=4, sort_keys=False, ensure_ascii=False)))
+    
+    ## 각 에페소드별로 하나의 게시물만 골라내는 함수를 호출한다.
     LOGGER.debug("==========")
     
     

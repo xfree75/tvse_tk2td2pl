@@ -279,7 +279,31 @@ fi
 svideo_size=`mediainfo --Inform="General;%FileSize%" "${abspath}"`
 svideo_durt=`mediainfo --Inform="General;%Duration%" "${abspath}"`
 svideo_scle=`mediainfo --Inform="Video;%Width%" "${abspath}"`
+
+##TODO: mediainfo로 부터 값을 하나라도 받아 오지 못하는 경우 소스파일의 확장자에 .orig를 붙여 파일 이름을 변경하고, 스크립트를 종요 한다.
+svideo_size=`echo "${svideo_size}" | sed -e 's/^[ \t]*//'`
+svideo_durt=`echo "${svideo_durt}" | sed -e 's/^[ \t]*//'`
+svideo_scle=`echo "${svideo_scle}" | sed -e 's/^[ \t]*//'`
+s_valid=true
+if [ ${#svideo_size} -eq 0 ]; then
+	s_valid=false
+fi
+if [ ${#svideo_durt} -eq 0 ]; then
+	s_valid=false
+fi
+if [ ${#svideo_scle} -eq 0 ]; then
+	s_valid=false
+fi
+
+if [ ${s_valid} == false ]; then
+	mv "${abspath}" "${targetpath}/${filename}.orig" 
+	rm -rf "${ffmpeg_tmp}"
+	echo "Wrong movie file: ${abspath}"
+	exit -1
+fi
+
 svideo_durt_sec=`expr ${svideo_durt} / 1000`
+
 
 # get source video scale(width) via mediainfo
 if [ "${vwscale_set}" == false ]; then
@@ -301,7 +325,7 @@ command1="ffmpeg \
 	   -y \
 	   -i \"${ffmpeg_tmp}/${filename}\" \
 	   -acodec aac \
-	   -ab 384k \
+	   -ab 256k \
 	   -ar 48000 \
 	   -ac 2 \
 	   -vcodec libx264 \
