@@ -193,7 +193,7 @@ def updatefeed():
     saveJsonArticle(getKtvList(bo_table_documentary)  , CONST.documentaryfeedlib_name)
 
 def getLastEpsoideNumberAtPlex(season_root, seriesname, seasonnumber):
-    ##TODO: 마지막 번호를 구해서 반환. 파일조차 없다면. None을 반환.
+    # 마지막 번호를 구해서 반환. 파일조차 없다면. None을 반환.
     videoList = glob.glob(os.path.join(season_root, seriesname + "*"))
     LOGGER.debug("{}'s video file count: {}".format(seriesname, str(len(videoList))))
 
@@ -395,7 +395,7 @@ def updateQueue(tpe):
         ep_dic = queue["ep_dic"]
         ep_dic[tpe["epid"]] = cep
         
-        ##TODO: last_epid를 비교하여 갱신하고, cep를 추가 하도록 한다.
+        # last_epid를 비교하여 갱신하고, cep를 추가 하도록 한다.
         if epidType == "date":
             # 날짜 비교.
             df = "%Y-%m-%d"
@@ -476,7 +476,7 @@ def downloadToIncomming(tpe):
                     LOGGER.debug("sleep: {}".format(ransleep))
                     time.sleep(ransleep)
                     
-        ##TODO: queue 정보를 갱신 한다. 시리즈 이름. 다운로드 추가 된 에피소드 정보.
+        ## queue 정보를 갱신 한다. 시리즈 이름. 다운로드 추가 된 에피소드 정보.
         updateQueue(tpe)
     
     conn.close()
