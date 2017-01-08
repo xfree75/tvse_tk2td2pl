@@ -13,7 +13,9 @@ import codecs
 import yaml
 import copy
 import http.client
+import requests
 import ntpath
+from urllib.parse import urlparse
 from os.path import basename
 from bs4 import BeautifulSoup
 from datetime import datetime
@@ -43,6 +45,9 @@ class _Const(object):
     @constant
     def feedlib_path_name():
         return "feedlib"
+    @constant
+    def queue_path_name():
+        return "queue"
     @constant
     def seriesdef_path_name():
         return "seriesdef"
@@ -207,12 +212,13 @@ def getLastEpsoideNumberAtPlex(season_root, seriesname, seasonnumber):
     return max(epnumlist) 
     
 def getLastEpsoideDateAtPlex(season_root, seriesname):
-    ##TODO: 마지막 날짜를 구해서 반환. 파일조차 없다면. None을 반환.
+    # 마지막 날짜를 구해서 반환. 파일조차 없다면. 적당한 과거의 날짜를 반환.
+    #TODO: 다운로드 이력을 먼저 확인 하도록 한다.
     videoList = glob.glob(os.path.join(season_root, seriesname + "*"))
     LOGGER.debug("{}'s video file count: {}".format(seriesname, str(len(videoList))))
 
     if len(videoList) == 0:
-        ## 1년전? 여튼 엄청 과거의 값을 반환 하도록 한다.
+        ## 좀 과거의 값을 반환 하도록 한다.
         ayearago = datetime.now() - relativedelta(years=1)
         return ayearago.strftime("%Y-%m-%d")
 
@@ -307,6 +313,174 @@ def checkNewEpByNumber(leid, title):
             LOGGER.debug("E start word: {}".format(w))
     return None
 
+def getTopPriorityEp(el, k):
+    LOGGER.debug("Lenght: {}. epid: {}".format(len(el), k))
+    
+    ## 개수가 하나라면, 그 하나를 다운로드 받도록. 아니라면, 가장 적절한 것(?)을 찾도록.
+    
+    pl = el[0]["ed"]["feed"]["priority"]
+    
+    if len(el) == 0:
+        return None
+    
+    ## 하나 일때 다운로드 받게 하려면, 아래 코드로 처리 가능하지만, 릴그룹/인코딩여부를 반환하기 애매 하므로 일단 보류 한다.
+    '''if len(el) == 1:
+        LOGGER.info("(getTopPriorityEp)Just one content: {}".format(el[0]["title"]))
+        return el[0]'''
+    
+    for p in pl:
+        #LOGGER.debug("priority: {}".format(p))
+        LOGGER.debug("resolution: {}, release_group: {}, force_audio_encoding:{}, force_video_encoding{}".format(p["resolution"], p["release_group"], p["force_audio_encoding"], p["force_video_encoding"]))
+    
+        for e in el:
+            #LOGGER.debug("title: {}".format(e["title"]))
+            if e["title"].upper().find(p["resolution"].upper()) > -1:
+                if e["title"].upper().find(p["release_group"].upper()) > -1:
+                    e["resolution"] = p["resolution"]
+                    e["release_group"] = p["release_group"]
+                    e["force_audio_encoding"] = p["force_audio_encoding"]
+                    e["force_video_encoding"] = p["force_video_encoding"]
+                    LOGGER.info("(getTopPriorityEp)Matched top priority: {}".format(e["title"]))
+                    return e
+    
+    LOGGER.info("(getTopPriorityEp)No match found: {}".format(el))
+    return None
+    
+def attachDownload(httpsHost, urlPath, my_referer, localPath, name):
+    ##referer 설정을 위해 httplib.HTTPConnection를 사용 해야 한다.
+    LOGGER.debug("httpsHost: {}, urlPath: {}, name: {}, my_referer: {}, localPath: {}".format(httpsHost, urlPath, name, my_referer, localPath))
+    
+    s = requests.Session()
+    s.headers.update({'referer': my_referer})
+    r = s.get("https://" + httpsHost + "/" + urlPath)
+    LOGGER.debug("Download status: {}".format(r.status_code))
+    if r.status_code == 200:
+        data = r.content
+        
+        f = open(os.path.join(localPath, name), 'wb')
+        f.write(bytearray(data))
+        f.close()
+    
+def updateQueue(tpe):
+    #LOGGER.debug("tpe for Update queue: {}".format(tpe))
+    seriesName = tpe["ed"]["series_name"]
+    seriesKey = tpe["ed"]["series_key"]
+    seasonNumber = tpe["ed"]["season_number"]
+    releaseYear = tpe["ed"]["release_year"]
+    plexlibRoot = tpe["ed"]["plexlib_season_root"]
+    storeCount = tpe["ed"]["store_count"]
+    epidType = tpe["ed"]["feed"]["epsode_id_type"]
+    queueFileName = seriesName + ".S" + seasonNumber + ".queue.json"
+    queueFile = os.path.join(rspath, CONST.queue_path_name, queueFileName)
+    queue = {}
+    
+    ## 일단 현재 epsodie 정보를 생성 한다.
+    cep = {}
+    cep["epid"] = tpe["epid"]
+    cep["url"] = tpe["url"]
+    cep["title"] = tpe["title"]
+    cep["resolution"] = tpe["resolution"]
+    cep["release_group"] = tpe["release_group"]
+    cep["force_audio_encoding"] = tpe["force_audio_encoding"]
+    cep["force_video_encoding"] = tpe["force_video_encoding"]
+    cep["download_complete"] = False
+
+    ## 파일이 있다면 읽기. 없다면, 생성.
+    if os.path.isfile(queueFile):
+        qf = open(queueFile, 'r')
+        queue = json.loads(qf.read())
+        qf.close()
+        
+        # 일단 추가된 에피소드 정보를 추가.
+        ep_dic = queue["ep_dic"]
+        ep_dic[tpe["epid"]] = cep
+        
+        ##TODO: last_epid를 비교하여 갱신하고, cep를 추가 하도록 한다.
+        if epidType == "date":
+            # 날짜 비교.
+            df = "%Y-%m-%d"
+            qdto = datetime.strptime(queue["last_epid"], df)
+            cdto = datetime.strptime(cep["epid"], df)
+            if qdto < cdto:
+                queue["last_epid"] = cdto.strftime(df)
+                
+        elif epidType == "number":
+            # 숫자 비교.
+            if queue["last_epid"] < cep["epid"]:
+                queue["last_epid"] = cep["epid"]
+            
+        else:
+            # 요건 에러임.
+            LOGGER.error("Unknown epsodie id tpye: {}".format(epidType))
+        
+    else:
+        queue["series_name"] = seriesName
+        queue["series_key"] = seriesKey
+        queue["season_number"] = seasonNumber
+        queue["last_epid"] = tpe["epid"]
+        queue["release_year"] = releaseYear
+        queue["plexlib_season_root"] = plexlibRoot
+        queue["store_count"] = storeCount
+        ep_dic = {}
+        queue["ep_dic"] = ep_dic
+        ep_dic[tpe["epid"]] = cep
+        
+    queueStr = json.dumps(queue, indent=4, sort_keys=False, ensure_ascii=False)
+    #LOGGER.debug("Update queue: {}".format(queueStr))
+    qf = open(queueFile, 'w')
+    qf.write(queueStr)
+    qf.close()
+    
+def downloadToIncomming(tpe):
+    #LOGGER.debug("(downloadToIncomming)tep:{}".format(tpe))
+    pr = urlparse(tpe["url"])
+    LOGGER.info("epsode detail page: {}".format(tpe["url"]))
+    #LOGGER.debug("parser result:{}".format(pr))
+    
+    conn = http.client.HTTPSConnection(pr.netloc)
+    conn.request("GET", pr.path + "?" + pr.query)
+    r1 = conn.getresponse()
+    LOGGER.debug("Status: {}, Reason: {}".format(r1.status, r1.reason))
+    if r1.status == 200:
+        data2 = r1.read()
+        #LOGGER.debug("content html: {}".format(data2))
+        soup = BeautifulSoup(data2, "lxml")
+        soup_mview = soup.find(id="m_view")
+        soup_mview_as = soup_mview.findAll("a")
+        
+        for a in soup_mview_as:
+            cu = str(a["href"])
+            if cu.find("javascript") > -1:
+                if cu.find("file_download") > -1:
+                    cu = cu.replace("javascript:file_download(", "")
+                    cu = cu.replace(");", "")
+                    cu = cu.replace("'", "")
+                    cul = cu.split(",")
+                    cp = cul[0].strip()
+                    cn = cul[1].strip()
+                    LOGGER.info("download path: {}".format(cp))
+                    LOGGER.info("download file name: {}".format(cn))
+                    
+                    ## 확장자 명에 따라 파일을 업로드 한다.
+                    ## 혹시 자막파일이면 나중에 찾아서 쓸 수 있도록 다운로드 경로에 미리 저장해 두자.
+                    watchDirPath = "/storage/local/mforce2-local/transmission-daemon/watch-dir"
+                    downloadDirPath = "/storage/local/mforce2-local/transmission-daemon/downloads"
+                    if cn.endswith('.torrent'):
+                        targetPath = watchDirPath
+                    else:
+                        targetPath = downloadDirPath
+                    
+                    ##TODO: 주석 해제 해야 한다.
+                    ###attachDownload(pr.netloc, cp, tpe["url"], targetPath, cn)
+                    ransleep = random.random()*10
+                    LOGGER.debug("sleep: {}".format(ransleep))
+                    time.sleep(ransleep)
+                    
+        ##TODO: queue 정보를 갱신 한다. 시리즈 이름. 다운로드 추가 된 에피소드 정보.
+        updateQueue(tpe)
+    
+    conn.close()
+
 def discoveryAndDownload(ed, leid, feedlibs):
     feed = ed["feed"]
     title_keywords = feed["necessary_title_keywords"]
@@ -359,7 +533,13 @@ def discoveryAndDownload(ed, leid, feedlibs):
     #LOGGER.debug("{}".format(json.dumps(match3feedDic, indent=4, sort_keys=False, ensure_ascii=False)))
     
     ## 각 에페소드별로 하나의 게시물만 골라내는 함수를 호출한다.
-    LOGGER.debug("==========")
+    for k in match3feedDic.keys():
+        te = getTopPriorityEp(match3feedDic.get(k), k)
+        #LOGGER.debug("{}".format(json.dumps(te, indent=4, sort_keys=False, ensure_ascii=False)))
+        if te:
+            downloadToIncomming(te)
+        
+    LOGGER.debug("===============================================================================")
     
     
 def discoveryEpsoidesFromAllFeed(dy, feedlibs):
@@ -375,10 +555,10 @@ def discoveryEpsoidesFromAllFeed(dy, feedlibs):
     leid = getLastEpsoideId(plexlib_path, serieskey, eptype, seriesname, seasonnumber)
     LOGGER.info("Last epsoid id: {}".format(leid))
     #keys = ed.feed.necessary_title_keywords
-    ##TODO: 받아야 할 모든 항목을 feed-json에서 확인
-    ##TODO:  - keyword로 찾은 다음. epsoide 번호 기준 새로운 항목을 확인.
-    ##TODO: 새로운 항목은 torrent 파일을 다운로드 받아 추가.
-    ##TODO: 다운로드 정보 파일에 정보를 추가.
+    ## 받아야 할 모든 항목을 feed-json에서 확인
+    ##  - keyword로 찾은 다음. epsoide 번호 기준 새로운 항목을 확인.
+    ## 새로운 항목은 torrent 파일을 다운로드 받아 추가.
+    ## 다운로드 정보 파일에 정보를 추가.
     discoveryAndDownload(ed, leid, feedlibs)
     
     
