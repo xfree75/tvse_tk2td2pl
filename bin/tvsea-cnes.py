@@ -394,6 +394,7 @@ def updateQueue(tpe):
         # 일단 추가된 에피소드 정보를 추가.
         ##TODO: 이미 존재 하는 경우에도 덮어쓰기가 안되므로, 확인한 후 없는 경우에만 쓰거나, 있는 경우 제거 하고 쓰도록 한다.
         ep_dic = queue["ep_dic"]
+        ep_dic.pop(tpe["epid"], None)
         ep_dic[tpe["epid"]] = cep
         
         # last_epid를 비교하여 갱신하고, cep를 추가 하도록 한다.
