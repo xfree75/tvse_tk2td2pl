@@ -63,6 +63,9 @@ class _Const(object):
     @constant
     def documentaryfeedlib_name():
         return "documentary.json"
+    @constant
+    def midfeedlib_name():
+        return "mid.json"
 
 CONST = _Const()
 
@@ -82,10 +85,6 @@ def checkrspath():
         sys.exit()
     elif os.path.isdir(rspath):
         LOGGER.debug("[{}] path is exist OK.".format(rspath))
-
-    
-def checkqueuefile():
-    LOGGER.info("xxxxxxx");
 
 ##
  # html을 실제 파싱하고 object로 변환 한다.
@@ -115,7 +114,7 @@ def listhtml2obj(htmlstring):
         torrcontent['url'] = "https://m.torrentkim5.net/" + hrefval
         torrcontentlist.append(torrcontent)
     return torrcontentlist
-        
+    
 
 ##
  # 목록 html들을 받아오고 parsing 한 후 object로 반환 하게 한다.
@@ -125,7 +124,8 @@ def getKtvList(bo_table_value):
     torrcontentlist = []
     conn = http.client.HTTPSConnection("m.torrentkim5.net")
     #TODO: range는 설정하고, 계산하여 처리 하도록 해야함.
-    for pagenum in range(1, 4):
+    pageCountForFeed = 3
+    for pagenum in range(1, pageCountForFeed + 1):
 
         if pagenum == 1:
             ransleep = random.random()*100
@@ -141,7 +141,7 @@ def getKtvList(bo_table_value):
             data1 = r1.read()
             torrcontentlist = torrcontentlist +listhtml2obj(data1)
             # 바깥 for loop 를 설정에 의해 제어하도록 하면서, 이곳의 값도 그 값을 가지고 처리 하도록 변경 해야 한다.
-            if pagenum == 3: break
+            if pagenum == pageCountForFeed: break
             ransleep = random.random()*10
             LOGGER.debug("sleep: {}".format(ransleep))
             time.sleep(ransleep)
@@ -186,11 +186,13 @@ def updatefeed():
     bo_table_kids = "torrent_child"
     bo_table_entertainment = "torrent_variety"
     bo_table_documentary= "torrent_docu"
+    bo_table_mid= "torrent_mid"
     
     saveJsonArticle(getKtvList(bo_table_drama)        , CONST.dramafeedlib_name)
     saveJsonArticle(getKtvList(bo_table_kids)         , CONST.kidsfeedlib_name)
     saveJsonArticle(getKtvList(bo_table_entertainment), CONST.entertainmentfeedlib_name)
     saveJsonArticle(getKtvList(bo_table_documentary)  , CONST.documentaryfeedlib_name)
+    saveJsonArticle(getKtvList(bo_table_mid)          , CONST.midfeedlib_name)
 
 def getLastEpsoideNumberAtPlex(season_root, seriesname, seasonnumber):
     # 마지막 번호를 구해서 반환. 파일조차 없다면. None을 반환.
@@ -209,11 +211,10 @@ def getLastEpsoideNumberAtPlex(season_root, seriesname, seasonnumber):
         #LOGGER.debug("    - name: [{}]".format(aep4))
         epnumlist.append(aep4)
 
-    return max(epnumlist) 
+    return max(epnumlist)
     
 def getLastEpsoideDateAtPlex(season_root, seriesname):
     # 마지막 날짜를 구해서 반환. 파일조차 없다면. 적당한 과거의 날짜를 반환.
-    #TODO: 다운로드 이력을 먼저 확인 하도록 한다.
     videoList = glob.glob(os.path.join(season_root, seriesname + "*"))
     LOGGER.debug("{}'s video file count: {}".format(seriesname, str(len(videoList))))
 
@@ -232,11 +233,17 @@ def getLastEpsoideDateAtPlex(season_root, seriesname):
     return max(epdatelist) 
     
 def getLastEpsoideId(season_root, series_key, epsode_id_type, seriesname, seasonnumber):
-    # 에피소드 다운로드 정보 json 파일이 있는지 확인 한다.
-    epdfile = os.path.join(rspath, CONST.seriesdef_path_name, str(series_key) + "_epd.json")
-    if os.path.isfile(epdfile):
+    #TODO: queue에 다운로드 이력을 먼저 확인 하도록 한다.
+    queueFileName = seriesname + ".S" + seasonnumber + ".queue.json"
+    queueFile = os.path.join(rspath, CONST.queue_path_name, queueFileName)
+    if os.path.isfile(queueFile):
         # 파일이 있다면, 읽어서 마지막 에피소드 정보를 반환 한다.
-        LOGGER.debug("Found epdfile: {}.".format(epdfile))
+        LOGGER.debug("Found season queue file: {}.".format(queueFile))
+        qf = open(queueFile, 'r')
+        queue = json.loads(qf.read())
+        qf.close()
+        LOGGER.debug("The last epid of queue file is {} ({})".format(queue["last_epid"], queueFileName))
+        return queue["last_epid"]
     else:
         # 파일이 없다면, season root path를 읽어서 마지막 값을 반환 한다.
         LOGGER.debug("Search: {}".format(season_root))
@@ -392,9 +399,12 @@ def updateQueue(tpe):
         qf.close()
         
         # 일단 추가된 에피소드 정보를 추가.
-        ##TODO: 이미 존재 하는 경우에도 덮어쓰기가 안되므로, 확인한 후 없는 경우에만 쓰거나, 있는 경우 제거 하고 쓰도록 한다.
+        # 이미 존재 하는 경우에도 덮어쓰기가 안되므로, 확인한 후 없는 경우에만 쓰거나, 있는 경우 제거 하고 쓰도록 한다.
         ep_dic = queue["ep_dic"]
-        ep_dic.pop(tpe["epid"], None)
+        if str(tpe["epid"]) in ep_dic:
+            LOGGER.warn("epid {} at {} is already is exist.".format(str(tpe["epid"]), seriesName))
+            del ep_dic[str(tpe["epid"])]
+            
         ep_dic[tpe["epid"]] = cep
         
         # last_epid를 비교하여 갱신하고, cep를 추가 하도록 한다.
@@ -472,8 +482,8 @@ def downloadToIncomming(tpe):
                     else:
                         targetPath = downloadDirPath
                     
-                    ##TODO: 주석 해제 해야 한다.
-                    ###attachDownload(pr.netloc, cp, tpe["url"], targetPath, cn)
+                    # 실제 다운로드 시작
+                    attachDownload(pr.netloc, cp, tpe["url"], targetPath, cn)
                     ransleep = random.random()*10
                     LOGGER.debug("sleep: {}".format(ransleep))
                     time.sleep(ransleep)
@@ -581,7 +591,6 @@ def findNewEpsoides():
     
 def main():
     checkrspath()
-    checkqueuefile()
     updatefeed()
     findNewEpsoides()
 
@@ -589,12 +598,5 @@ if __name__ == "__main__":
     main()
 
 
-"""
-## torrent 파일을 다운로드 받으려 하는 경우는 다음과 같이 referer를 지정 해줘야 한다. 꼭 상세 페이지를 줘야 하는지는 모르겠지만, 그게 가장 좋아 보인다.
-## curl --referer "https://m.torrentkim5.net/./bc.php?bo_table=torrent_tv&wr_id=119764&page=2" "https://m.torrentkim5.net/./bbs/download.php?bo_table=torrent_tv&wr_id=119764&no=0&page=1"
-## cookie는 필요 없는 것으로 확인 되었지만, 만약 해야 한다면, 다음과 같이 상세 페이지에서 cookie를 받아 저장하고 이를 사용하도록 해야 할 수도 있다.
-## curl --cookie-jar cjar3.cookie --output /dev/null "https://m.torrentkim5.net/./bc.php?bo_table=torrent_tv&wr_id=119764&page=2"
-## curl --cookie cjar3.cookie --referer "https://m.torrentkim5.net/./bc.php?bo_table=torrent_tv&wr_id=119764&page=2" "https://m.torrentkim5.net/./bbs/download.php?bo_table=torrent_tv&wr_id=119764&no=0&page=1"
-"""
 
 
