@@ -3,6 +3,8 @@
 
 
 tmpbase=/tmp
+ff_vcp=false
+ff_acp=false
 ff_tune=film
 ff_preset=medium
 ff_crf=20
@@ -35,6 +37,10 @@ function printhelp(){
 	echo "                          작업이 완료되면 작업 파일은 삭제 됩니다. (오류 발생시 남게 됨)."
 	echo "    --out-path <path>     인코딩 된 파일을 저장할 경로입니다."
 	echo "    --out-name <name>     인코딩 된 파일을 저장할 이름입니다."
+	echo "    --ff-vcp <bool>       소스가 mp4 컨테이너이고 해상도가 유지 되는 경우 비디오 재인코딩 없이 복사 합니다."
+	echo "                          기본 값은 ${ff_vcp} 입니다. 이 외의 비디오 인코딩 옵션은 무시됩니다."
+	echo "    --ff-acp <bool>       소스가 mp4 컨테이너 인 경우. 오디오를 재인코딩 하지 않고 복사 합니다."
+	echo "                          기본 값은 ${ff_acp} 입니다."
 	echo "    --ff-tune <value>     ffmpeg 실행 시 tune option으로 전달 됩니다."
 	echo "                          기본 값은 ${ff_tune} 입니다. 자세한 옵션은 ffmpeg 도움말을 참고하십시오."
 	echo "    --ff-preset <value>   ffmpeg 실행 시 preset option으로 전달 됩니다."
@@ -134,6 +140,14 @@ do
 			ovf=true
 			co="--out-name"
 		fi
+		if [ "${targ}" == "--ff-vcp" ]; then
+			ovf=true
+			co="--ff-vcp"
+		fi
+		if [ "${targ}" == "--ff-acp" ]; then
+			ovf=true
+			co="--ff-acp"
+		fi
 		if [ "${targ}" == "--ff-tune" ]; then
 			ovf=true
 			co="--ff-tune"
@@ -176,6 +190,16 @@ do
 			fi
 			if [ "${co}" == "--ff-tune" ]; then
 				ff_tune=${targ}
+				ovf=false
+				co=
+			fi
+			if [ "${co}" == "--ff-vcp" ]; then
+				ff_vcp=${targ}
+				ovf=false
+				co=
+			fi
+			if [ "${co}" == "--ff-acp" ]; then
+				ff_acp=${targ}
 				ovf=false
 				co=
 			fi
@@ -236,6 +260,15 @@ fi
 
 ext=`echo ${filename##*.}`
 name=`echo ${filename%.*}`
+
+# 소스 파일의 확장자가 m4v, mp4 둘 다 아니라면, ff_vcp/ff_acp 옵션을 무시 하게 한다.
+ext=$(echo "${ext}" | tr '[:upper:]' '[:lower:]')
+if [ "${ext}" != "mp4" ]; then
+    if [ "${ext}" != "m4v" ]; then
+        ff_vcp=false
+        ff_acp=false
+    fi
+fi
 
 # 출력 경로 및 이름 인지가 있다면 지정 한다.
 targetpath=${sourcepath}
@@ -306,12 +339,14 @@ svideo_durt_sec=`expr ${svideo_durt} / 1000`
 
 
 # get source video scale(width) via mediainfo
+
 if [ "${vwscale_set}" == false ]; then
 	#vwscale_str=`echo "${mediainfoxml}" | xmllint --xpath "/Mediainfo/File/track[@type='Video']/Width/text()" -`
 	#vwscale_value=`echo ${vwscale_str} | sed -e "s/pixels//g" | sed -e "s/\ //g"`
 	#echo "vwscale_value: ${vwscale_value}"
 	if [[ ${svideo_scle} -lt ${ff_vwscale} ]]; then
 		ff_vwscale=${svideo_scle}
+		ff_vcp=false # Video scale가 변경 되어야 하는 경우는 video를 무조건 인코딩 하도록 한다.
 	fi
 
 fi
@@ -320,21 +355,22 @@ command0="cp \
 	    \"${abspath}\" \
 	    \"${ffmpeg_tmp}/\""
 
+# 오디오 비디오의 각 인코딩 여부에 따라 옵션을 변경 하여, 복사로 처리 하게 한다.
+command1_vo="-vcodec libx264 -preset ${ff_preset} -level 3.0 -crf ${ff_crf} -tune ${ff_tune} -r 23.976 -vf scale=${ff_vwscale}:trunc\(ow/a/2\)*2"
+command1_ao="-acodec aac -ab 256k -ar 48000 -ac 2"
+if [ "${ff_vcp}" == true ]; then
+    command1_vo="-c:v copy"
+fi
+if [ "${ff_acp}" == true ]; then
+    command1_ao="-c:a copy"
+fi
+
 
 command1="ffmpeg \
 	   -y \
 	   -i \"${ffmpeg_tmp}/${filename}\" \
-	   -acodec aac \
-	   -ab 256k \
-	   -ar 48000 \
-	   -ac 2 \
-	   -vcodec libx264 \
-	   -preset ${ff_preset} \
-	   -level 3.0 \
-	   -crf ${ff_crf} \
-	   -tune ${ff_tune} \
-	   -r 23.976 \
-	   -vf scale=${ff_vwscale}:trunc\(ow/a/2\)*2 \
+	   ${command1_ao} \
+	   ${command1_vo} \
 	   -threads ${ff_threads} \
 	   -strict -2 \
 	   \"${ffmpeg_tmp}/___tmp.m4v\""
