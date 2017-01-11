@@ -233,8 +233,8 @@ def getLastEpsoideDateAtPlex(season_root, seriesname):
     return max(epdatelist) 
     
 def getLastEpsoideId(season_root, series_key, epsode_id_type, seriesname, seasonnumber):
-    #TODO: queue에 다운로드 이력을 먼저 확인 하도록 한다.
-    queueFileName = seriesname + ".S" + seasonnumber + ".queue.json"
+    # queue에 다운로드 이력을 먼저 확인 하도록 한다.
+    queueFileName = seriesname + ".s" + seasonnumber + ".queue.json"
     queueFile = os.path.join(rspath, CONST.queue_path_name, queueFileName)
     if os.path.isfile(queueFile):
         # 파일이 있다면, 읽어서 마지막 에피소드 정보를 반환 한다.
@@ -377,7 +377,7 @@ def updateQueue(tpe):
     plexlibRoot = tpe["ed"]["plexlib_season_root"]
     storeCount = tpe["ed"]["store_count"]
     epidType = tpe["ed"]["feed"]["epsode_id_type"]
-    queueFileName = seriesName + ".S" + seasonNumber + ".queue.json"
+    queueFileName = seriesName + ".s" + seasonNumber + ".queue.json"
     queueFile = os.path.join(rspath, CONST.queue_path_name, queueFileName)
     queue = {}
     
