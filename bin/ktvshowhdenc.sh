@@ -10,6 +10,7 @@ ff_preset=medium
 ff_crf=20
 ff_threads=0
 ff_vwscale=1280
+ff_maxvbrate=3145728
 vwscale_set=false
 
 
@@ -38,7 +39,8 @@ function printhelp(){
 	echo "    --out-path <path>     인코딩 된 파일을 저장할 경로입니다."
 	echo "    --out-name <name>     인코딩 된 파일을 저장할 이름입니다."
 	echo "    --ff-vcp <bool>       소스가 mp4 컨테이너이고 해상도가 유지 되는 경우 비디오 재인코딩 없이 복사 합니다."
-	echo "                          기본 값은 ${ff_vcp} 입니다. 이 외의 비디오 인코딩 옵션은 무시됩니다."
+	echo "                          기본 값은 ${ff_vcp} 입니다. 이 외의 비디오 인코딩 옵션은 무시 됩니다."
+	echo "                          소스 비디오의 bit rate가 3Mbps를 초과 하는 경우에 이 옵션은 무시 됩니다."
 	echo "    --ff-acp <bool>       소스가 mp4 컨테이너 인 경우. 오디오를 재인코딩 하지 않고 복사 합니다."
 	echo "                          기본 값은 ${ff_acp} 입니다."
 	echo "    --ff-tune <value>     ffmpeg 실행 시 tune option으로 전달 됩니다."
@@ -265,8 +267,10 @@ name=`echo ${filename%.*}`
 ext=$(echo "${ext}" | tr '[:upper:]' '[:lower:]')
 if [ "${ext}" != "mp4" ]; then
     if [ "${ext}" != "m4v" ]; then
-        ff_vcp=false
-        ff_acp=false
+        if [ "${ext}" != "mkv" ]; then
+            ff_vcp=false
+            ff_acp=false
+        fi
     fi
 fi
 
@@ -312,6 +316,7 @@ fi
 svideo_size=`mediainfo --Inform="General;%FileSize%" "${abspath}"`
 svideo_durt=`mediainfo --Inform="General;%Duration%" "${abspath}"`
 svideo_scle=`mediainfo --Inform="Video;%Width%" "${abspath}"`
+svideo_vbit=`mediainfo --Inform="Video;%BitRate%" "${abspath}"`
 
 ##TODO: mediainfo로 부터 값을 하나라도 받아 오지 못하는 경우 소스파일의 확장자에 .orig를 붙여 파일 이름을 변경하고, 스크립트를 종요 한다.
 svideo_size=`echo "${svideo_size}" | sed -e 's/^[ \t]*//'`
@@ -345,10 +350,19 @@ if [ "${vwscale_set}" == false ]; then
 	#vwscale_value=`echo ${vwscale_str} | sed -e "s/pixels//g" | sed -e "s/\ //g"`
 	#echo "vwscale_value: ${vwscale_value}"
 	if [[ ${svideo_scle} -lt ${ff_vwscale} ]]; then
+		# 소스의 해상도가 기본 해상도 보다 작은 경우, 원본 해상도를 유지하도록 한다.
 		ff_vwscale=${svideo_scle}
-		ff_vcp=false # Video scale가 변경 되어야 하는 경우는 video를 무조건 인코딩 하도록 한다.
 	fi
+fi
 
+## 해상도를 변경한다면, ${ff_vcp}을 강제로 false로 설정 한다.
+if [[ ${svideo_scle} -ne ${ff_vwscale} ]]; then
+	ff_vcp=false # Video scale가 변경 되어야 하는 경우는 video를 무조건 인코딩 하도록 한다.
+fi
+
+## 소스의 video bitrate가 3,072(kbps)/384(kbyte/sec)를 초과 한다면, ${ff_vcp}을 강제로 false로 설정 한다.
+if [[ ${svideo_vbit} -gt ${ff_maxvbrate} ]]; then
+	ff_vcp=false # Video scale가 변경 되어야 하는 경우는 video를 무조건 인코딩 하도록 한다.
 fi
 
 command0="cp \
