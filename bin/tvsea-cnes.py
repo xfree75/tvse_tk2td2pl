@@ -21,14 +21,13 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
-#print(os.path.isdir("/home/el"))
-#print(os.path.exists("/home/el/myfile.txt"))
+#logging.basicConfig(level=logging.DEBUG)
+#LOGGER = logging.getLogger(os.path.basename(__file__))
+#LOGGER = None
 
-#logging.basicConfig(filename='example.log',level=logging.DEBUG)
-#logging.basicConfig(level=logging.WARNING)
-logging.basicConfig(level=logging.DEBUG)
-LOGGER = logging.getLogger(os.path.basename(__file__))
-
+##TODO: 미디어 라이브러리 폴더가 없는 경우. 경고 로깅 후 경로를 생성 하도록 처리.
+##TODO: 미디어 라이브러리에 영상이 없고, queue도 없을 때(leid number가 None)이 반환되지 않도록? 아니면 None에 대해 방어 코딩 등등..
+##TODO: 로깅을 파일에 하도록 처리
 
 def constant(f):
     def fset(self, value):
@@ -72,19 +71,31 @@ CONST = _Const()
 def checkrspath():
     global rspath
     rspath = os.path.join(os.path.expanduser("~"), "." + CONST.resource_name)
-    LOGGER.info("Resource name: {}".format(CONST.resource_name))
-    LOGGER.info("Resource path: {}".format(rspath))
+    print("Resource name: {}".format(CONST.resource_name))
+    print("Resource path: {}".format(rspath))
     
     # check for exist resource path.
     if not os.path.exists(rspath):
         os.makedirs(rspath)
-        LOGGER.warning("[{}] is not exist.".format(rspath))
+        print("[{}] is not exist.".format(rspath))
         sys.exit()
     elif not os.path.isdir(rspath):
-        LOGGER.warning("ERROR! {} is not directory!".format(rspath))
+        print("ERROR! {} is not directory!".format(rspath))
         sys.exit()
     elif os.path.isdir(rspath):
-        LOGGER.debug("[{}] path is exist OK.".format(rspath))
+        print("[{}] path is exist OK.".format(rspath))
+
+def startLogging():
+    rspath = os.path.join(os.path.expanduser("~"), "." + CONST.resource_name)
+    logfile = os.path.join(rspath, "log", os.path.basename(__file__) + ".log")
+    logging.basicConfig(filename=logfile,level=logging.DEBUG)
+    #logging.basicConfig(level=logging.WARNING)
+    #logging.basicConfig(level=logging.DEBUG)
+    #LOGGER = logging.getLogger(os.path.basename(__file__))
+    global LOGGER
+    LOGGER = logging
+    print("Complete initialize logging. logfile: {}".format(logfile))
+
 
 ##
  # html을 실제 파싱하고 object로 변환 한다.
@@ -308,7 +319,7 @@ def checkNewEpByNumber(leid, title):
             try:
                 val = int(epnum)
                 if int(leid) < val:
-                    #LOGGER.debug("return new episode number: e[{}]".format(val))
+                    LOGGER.debug("return new episode number: e[{}]".format(val))
                     return val
             except TypeError as e:
                 LOGGER.warn("TypeError word[{}, {}]: {}".format(w, epnum, e))
@@ -368,7 +379,7 @@ def attachDownload(httpsHost, urlPath, my_referer, localPath, name):
         f.write(bytearray(data))
         f.close()
     
-def updateQueue(tpe):
+def updateQueue(tpe, title_keywords):
     #LOGGER.debug("tpe for Update queue: {}".format(tpe))
     seriesName = tpe["ed"]["series_name"]
     seriesKey = tpe["ed"]["series_key"]
@@ -433,6 +444,8 @@ def updateQueue(tpe):
         queue["release_year"] = releaseYear
         queue["plexlib_season_root"] = plexlibRoot
         queue["store_count"] = storeCount
+        queue["title_keywords"] = title_keywords
+        queue["epsode_id_type"] = epidType
         ep_dic = {}
         queue["ep_dic"] = ep_dic
         ep_dic[tpe["epid"]] = cep
@@ -443,7 +456,7 @@ def updateQueue(tpe):
     qf.write(queueStr)
     qf.close()
     
-def downloadToIncomming(tpe):
+def downloadToIncomming(tpe, title_keywords):
     #LOGGER.debug("(downloadToIncomming)tep:{}".format(tpe))
     pr = urlparse(tpe["url"])
     LOGGER.info("epsode detail page: {}".format(tpe["url"]))
@@ -489,7 +502,7 @@ def downloadToIncomming(tpe):
                     time.sleep(ransleep)
                     
         ## queue 정보를 갱신 한다. 시리즈 이름. 다운로드 추가 된 에피소드 정보.
-        updateQueue(tpe)
+        updateQueue(tpe, title_keywords)
     
     conn.close()
 
@@ -512,7 +525,7 @@ def discoveryAndDownload(ed, leid, feedlibs):
     match2feeds = list()
     ## 검색된 것이 새로운 에피소드인지 확인 한다.
     for ffs in match1feeds:
-        #LOGGER.debug("matched: {}".format(ffs["title"]))
+        LOGGER.debug("matched: {}".format(ffs["title"]))
         if epsode_id_type == "date":
             epid = checkNewEpByDate(leid, ffs["title"])
             if not epid == None:
@@ -547,9 +560,9 @@ def discoveryAndDownload(ed, leid, feedlibs):
     ## 각 에페소드별로 하나의 게시물만 골라내는 함수를 호출한다.
     for k in match3feedDic.keys():
         te = getTopPriorityEp(match3feedDic.get(k), k)
-        #LOGGER.debug("{}".format(json.dumps(te, indent=4, sort_keys=False, ensure_ascii=False)))
+        #LOGGER.debug("Top priority epsode: {}".format(json.dumps(te, indent=4, sort_keys=False, ensure_ascii=False)))
         if te:
-            downloadToIncomming(te)
+            downloadToIncomming(te, title_keywords)
         
     LOGGER.debug("===============================================================================")
     
@@ -591,6 +604,7 @@ def findNewEpsoides():
     
 def main():
     checkrspath()
+    startLogging()
     updatefeed()
     findNewEpsoides()
 
