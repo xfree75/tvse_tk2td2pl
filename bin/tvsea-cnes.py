@@ -206,12 +206,12 @@ def updatefeed():
     saveJsonArticle(getKtvList(bo_table_mid)          , CONST.midfeedlib_name)
 
 def getLastEpsoideNumberAtPlex(season_root, seriesname, seasonnumber):
-    # 마지막 번호를 구해서 반환. 파일조차 없다면. None을 반환.
+    # 마지막 번호를 구해서 반환. 파일조차 없다면. 0을 반환.
     videoList = glob.glob(os.path.join(season_root, seriesname + "*"))
     LOGGER.debug("{}'s video file count: {}".format(seriesname, str(len(videoList))))
 
     if len(videoList) == 0:
-        return None
+        return 0
 
     epnumlist = []
     for aep in videoList:
