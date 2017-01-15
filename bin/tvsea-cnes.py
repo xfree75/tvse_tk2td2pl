@@ -88,12 +88,17 @@ def checkrspath():
 def startLogging():
     rspath = os.path.join(os.path.expanduser("~"), "." + CONST.resource_name)
     logfile = os.path.join(rspath, "log", os.path.basename(__file__) + ".log")
-    logging.basicConfig(filename=logfile,level=logging.DEBUG)
+    #logging.basicConfig(filename=logfile,level=logging.DEBUG)
     #logging.basicConfig(level=logging.WARNING)
     #logging.basicConfig(level=logging.DEBUG)
     #LOGGER = logging.getLogger(os.path.basename(__file__))
-    global LOGGER
-    LOGGER = logging
+    global logger
+    logger = logging.getLogger(os.path.basename(__file__))
+    fomatter = logging.Formatter('[%(levelname)s|%(filename)s:%(lineno)s] %(asctime)s > %(message)s')
+    fileHandler = logging.FileHandler(logfile)
+    fileHandler.setFormatter(fomatter)
+    logger.addHandler(fileHandler)
+    logger.setLevel(logging.DEBUG)
     print("Complete initialize logging. logfile: {}".format(logfile))
 
 
@@ -103,23 +108,23 @@ def startLogging():
 def listhtml2obj(htmlstring):
     #htmllinearr = htmlstring.splitlines(True)
     #linelen = len(htmllinearr)
-    #LOGGER.debug("html line length: {}".format(linelen))
+    #logger.debug("html line length: {}".format(linelen))
     #for line in htmllinearr:
     soup = BeautifulSoup(htmlstring, "lxml")
     soup_listsubjects = soup('a', {'class':'list_subject',})
-    LOGGER.debug("list_subject element: {}".format(str(soup_listsubjects)))
+    logger.debug("list_subject element: {}".format(str(soup_listsubjects)))
     listidx = 0
     torrcontentlist = []
     for ahref in soup_listsubjects:
         listidx = listidx + 1 
         hrefval = ahref['href']
         # skip: rel="nofollow"
-        #LOGGER.debug("tag.attrs: {}".format(ahref.attrs))
+        #logger.debug("tag.attrs: {}".format(ahref.attrs))
         if 'rel' in ahref.attrs:
             relval = ahref['rel']
-            #LOGGER.debug("relval: {}".format(relval))
+            #logger.debug("relval: {}".format(relval))
             if relval[0] == "nofollow": continue
-        LOGGER.debug("content url path[{:0>2d}]: {}: {}".format(listidx, hrefval, ahref.string))
+        logger.debug("content url path[{:0>2d}]: {}: {}".format(listidx, hrefval, ahref.string))
         torrcontent = {}
         torrcontent['title'] = ahref.string
         torrcontent['url'] = "https://m.torrentkim5.net/" + hrefval
@@ -140,21 +145,21 @@ def getKtvList(bo_table_value):
 
         if pagenum == 1:
             ransleep = random.random()*100
-            LOGGER.debug("sleep: {}".format(ransleep))
+            logger.debug("sleep: {}".format(ransleep))
             time.sleep(ransleep)
 
         urlpath = "/bc.php?bo_table="+bo_table_value+"&page=" + str(pagenum)
-        LOGGER.debug("content list path: {}".format(urlpath))
+        logger.debug("content list path: {}".format(urlpath))
         conn.request("GET", urlpath)
         r1 = conn.getresponse()
-        LOGGER.debug("Status: {}, Reason: {}".format(r1.status, r1.reason))
+        logger.debug("Status: {}, Reason: {}".format(r1.status, r1.reason))
         if r1.status == 200:
             data1 = r1.read()
             torrcontentlist = torrcontentlist +listhtml2obj(data1)
             # 바깥 for loop 를 설정에 의해 제어하도록 하면서, 이곳의 값도 그 값을 가지고 처리 하도록 변경 해야 한다.
             if pagenum == pageCountForFeed: break
             ransleep = random.random()*10
-            LOGGER.debug("sleep: {}".format(ransleep))
+            logger.debug("sleep: {}".format(ransleep))
             time.sleep(ransleep)
 
     conn.close()
@@ -162,7 +167,7 @@ def getKtvList(bo_table_value):
 
 def saveJsonArticle(listobj, type):
     formatedJsonStr = json.dumps(listobj, indent=4, sort_keys=False, ensure_ascii=False)
-    LOGGER.debug("Formatted json: {}".format(formatedJsonStr))
+    logger.debug("Formatted json: {}".format(formatedJsonStr))
     feedlib_path = os.path.join(rspath, CONST.feedlib_path_name, type)
     f = open(feedlib_path, 'w')
     f.write(formatedJsonStr)
@@ -170,7 +175,7 @@ def saveJsonArticle(listobj, type):
 
 def checkRecentUpdate():
     current = time.time()
-    LOGGER.debug("Current time: {}".format(current))
+    logger.debug("Current time: {}".format(current))
     last_modified_date = 0
     mtime = 0
     for file in os.listdir(os.path.join(rspath, CONST.feedlib_path_name)):
@@ -182,10 +187,10 @@ def checkRecentUpdate():
                 mtime = 0
                 
             difftime = (current - mtime) / 60
-            LOGGER.debug("Current feed update time: {}. Diff(min): {}.".format(mtime, difftime))
+            logger.debug("Current feed update time: {}. Diff(min): {}.".format(mtime, difftime))
             
             if difftime < 180:
-                LOGGER.info("Already updated just before {0:.2f}(min). Skip update feedlib. ".format(difftime))
+                logger.info("Already updated just before {0:.2f}(min). Skip update feedlib. ".format(difftime))
                 return False
     return True
     
@@ -208,7 +213,7 @@ def updatefeed():
 def getLastEpsoideNumberAtPlex(season_root, seriesname, seasonnumber):
     # 마지막 번호를 구해서 반환. 파일조차 없다면. 0을 반환.
     videoList = glob.glob(os.path.join(season_root, seriesname + "*"))
-    LOGGER.debug("{}'s video file count: {}".format(seriesname, str(len(videoList))))
+    logger.debug("{}'s video file count: {}".format(seriesname, str(len(videoList))))
 
     if len(videoList) == 0:
         return 0
@@ -219,7 +224,7 @@ def getLastEpsoideNumberAtPlex(season_root, seriesname, seasonnumber):
         aep2 = aep1.replace(seriesname, "", 1)
         aep3 = aep2.split('-')[1].strip()
         aep4 = aep3.replace("s" + str(seasonnumber) + "e", "", 1)
-        #LOGGER.debug("    - name: [{}]".format(aep4))
+        #logger.debug("    - name: [{}]".format(aep4))
         epnumlist.append(aep4)
 
     return max(epnumlist)
@@ -227,7 +232,7 @@ def getLastEpsoideNumberAtPlex(season_root, seriesname, seasonnumber):
 def getLastEpsoideDateAtPlex(season_root, seriesname):
     # 마지막 날짜를 구해서 반환. 파일조차 없다면. 적당한 과거의 날짜를 반환.
     videoList = glob.glob(os.path.join(season_root, seriesname + "*"))
-    LOGGER.debug("{}'s video file count: {}".format(seriesname, str(len(videoList))))
+    logger.debug("{}'s video file count: {}".format(seriesname, str(len(videoList))))
 
     if len(videoList) == 0:
         ## 좀 과거의 값을 반환 하도록 한다.
@@ -238,7 +243,7 @@ def getLastEpsoideDateAtPlex(season_root, seriesname):
     for aep in videoList:
         aep1 = ntpath.basename(aep).split('.')[0]
         aep2 = aep1.replace(seriesname, "", 1).replace(" - ", "", 1).strip()
-        LOGGER.debug("    - name: [{}]".format(aep2))
+        logger.debug("    - name: [{}]".format(aep2))
         epdatelist.append(aep2)
 
     return max(epdatelist) 
@@ -249,15 +254,15 @@ def getLastEpsoideId(season_root, series_key, epsode_id_type, seriesname, season
     queueFile = os.path.join(rspath, CONST.queue_path_name, queueFileName)
     if os.path.isfile(queueFile):
         # 파일이 있다면, 읽어서 마지막 에피소드 정보를 반환 한다.
-        LOGGER.debug("Found season queue file: {}.".format(queueFile))
+        logger.debug("Found season queue file: {}.".format(queueFile))
         qf = open(queueFile, 'r')
         queue = json.loads(qf.read())
         qf.close()
-        LOGGER.debug("The last epid of queue file is {} ({})".format(queue["last_epid"], queueFileName))
+        logger.debug("The last epid of queue file is {} ({})".format(queue["last_epid"], queueFileName))
         return queue["last_epid"]
     else:
         # 파일이 없다면, season root path를 읽어서 마지막 값을 반환 한다.
-        LOGGER.debug("Search: {}".format(season_root))
+        logger.debug("Search: {}".format(season_root))
         if epsode_id_type == "date":
             return getLastEpsoideDateAtPlex(season_root, seriesname)
         elif epsode_id_type == "number":
@@ -280,7 +285,7 @@ def titleSplit(title):
     for w in s3:
         s4.extend(w.split("_"))
 
-    #LOGGER.debug("s4: {}".format(s4))
+    #logger.debug("s4: {}".format(s4))
     return s4
 
 def checkNewEpByDate(leid, title):
@@ -297,16 +302,16 @@ def checkNewEpByDate(leid, title):
             try:
                 ## 여려 format의 날짜 변환을 시도해 본다. 변환된 날짜가 과거 1개월 이내 이어야 한다.
                 dto = datetime.strptime(w, df)
-                LOGGER.debug("w to datetime_object: {} -> {} / {}".format(w, dto, df))
+                logger.debug("w to datetime_object: {} -> {} / {}".format(w, dto, df))
                 delta = now - dto
-                LOGGER.debug("diff date: {} days".format(delta.days))
+                logger.debug("diff date: {} days".format(delta.days))
                 if delta.days < 32 and delta.days > -1:
                     if dto > leiddt:
                         dstr = dto.strftime("%Y-%m-%d")
-                        #LOGGER.debug("return new episode date: [{}]".format(dstr))
+                        #logger.debug("return new episode date: [{}]".format(dstr))
                         return dstr
             except ValueError as e:
-                #LOGGER.warn("{}".format(e))
+                #logger.warn("{}".format(e))
                 continue 
 
     return None
@@ -319,20 +324,20 @@ def checkNewEpByNumber(leid, title):
             try:
                 val = int(epnum)
                 if int(leid) < val:
-                    LOGGER.debug("return new episode number: e[{}]".format(val))
+                    logger.debug("return new episode number: e[{}]".format(val))
                     return val
             except TypeError as e:
-                LOGGER.warn("TypeError word[{}, {}]: {}".format(w, epnum, e))
+                logger.warn("TypeError word[{}, {}]: {}".format(w, epnum, e))
                 continue
             except ValueError as e:
-                LOGGER.warn("ValueError word[{}, {}]: {}".format(w, epnum, e))
+                logger.warn("ValueError word[{}, {}]: {}".format(w, epnum, e))
                 continue
 
-            LOGGER.debug("E start word: {}".format(w))
+            logger.debug("E start word: {}".format(w))
     return None
 
 def getTopPriorityEp(el, k):
-    LOGGER.debug("Lenght: {}. epid: {}".format(len(el), k))
+    logger.debug("Lenght: {}. epid: {}".format(len(el), k))
     
     ## 개수가 하나라면, 그 하나를 다운로드 받도록. 아니라면, 가장 적절한 것(?)을 찾도록.
     
@@ -343,35 +348,35 @@ def getTopPriorityEp(el, k):
     
     ## 하나 일때 다운로드 받게 하려면, 아래 코드로 처리 가능하지만, 릴그룹/인코딩여부를 반환하기 애매 하므로 일단 보류 한다.
     '''if len(el) == 1:
-        LOGGER.info("(getTopPriorityEp)Just one content: {}".format(el[0]["title"]))
+        logger.info("(getTopPriorityEp)Just one content: {}".format(el[0]["title"]))
         return el[0]'''
     
     for p in pl:
-        #LOGGER.debug("priority: {}".format(p))
-        LOGGER.debug("resolution: {}, release_group: {}, force_audio_encoding:{}, force_video_encoding{}".format(p["resolution"], p["release_group"], p["force_audio_encoding"], p["force_video_encoding"]))
+        #logger.debug("priority: {}".format(p))
+        logger.debug("resolution: {}, release_group: {}, force_audio_encoding:{}, force_video_encoding{}".format(p["resolution"], p["release_group"], p["force_audio_encoding"], p["force_video_encoding"]))
     
         for e in el:
-            #LOGGER.debug("title: {}".format(e["title"]))
+            #logger.debug("title: {}".format(e["title"]))
             if e["title"].upper().find(p["resolution"].upper()) > -1:
                 if e["title"].upper().find(p["release_group"].upper()) > -1:
                     e["resolution"] = p["resolution"]
                     e["release_group"] = p["release_group"]
                     e["force_audio_encoding"] = p["force_audio_encoding"]
                     e["force_video_encoding"] = p["force_video_encoding"]
-                    LOGGER.info("(getTopPriorityEp)Matched top priority: {}".format(e["title"]))
+                    logger.info("(getTopPriorityEp)Matched top priority: {}".format(e["title"]))
                     return e
     
-    LOGGER.info("(getTopPriorityEp)No match found: {}".format(el))
+    logger.info("(getTopPriorityEp)No match found: {}".format(el))
     return None
     
 def attachDownload(httpsHost, urlPath, my_referer, localPath, name):
     ##referer 설정을 위해 httplib.HTTPConnection를 사용 해야 한다.
-    LOGGER.debug("httpsHost: {}, urlPath: {}, name: {}, my_referer: {}, localPath: {}".format(httpsHost, urlPath, name, my_referer, localPath))
+    logger.debug("httpsHost: {}, urlPath: {}, name: {}, my_referer: {}, localPath: {}".format(httpsHost, urlPath, name, my_referer, localPath))
     
     s = requests.Session()
     s.headers.update({'referer': my_referer})
     r = s.get("https://" + httpsHost + "/" + urlPath)
-    LOGGER.debug("Download status: {}".format(r.status_code))
+    logger.debug("Download status: {}".format(r.status_code))
     if r.status_code == 200:
         data = r.content
         
@@ -380,7 +385,7 @@ def attachDownload(httpsHost, urlPath, my_referer, localPath, name):
         f.close()
     
 def updateQueue(tpe, title_keywords):
-    #LOGGER.debug("tpe for Update queue: {}".format(tpe))
+    #logger.debug("tpe for Update queue: {}".format(tpe))
     seriesName = tpe["ed"]["series_name"]
     seriesKey = tpe["ed"]["series_key"]
     seasonNumber = tpe["ed"]["season_number"]
@@ -413,7 +418,7 @@ def updateQueue(tpe, title_keywords):
         # 이미 존재 하는 경우에도 덮어쓰기가 안되므로, 확인한 후 없는 경우에만 쓰거나, 있는 경우 제거 하고 쓰도록 한다.
         ep_dic = queue["ep_dic"]
         if str(tpe["epid"]) in ep_dic:
-            LOGGER.warn("epid {} at {} is already is exist.".format(str(tpe["epid"]), seriesName))
+            logger.warn("epid {} at {} is already is exist.".format(str(tpe["epid"]), seriesName))
             del ep_dic[str(tpe["epid"])]
             
         ep_dic[tpe["epid"]] = cep
@@ -434,7 +439,7 @@ def updateQueue(tpe, title_keywords):
             
         else:
             # 요건 에러임.
-            LOGGER.error("Unknown epsodie id tpye: {}".format(epidType))
+            logger.error("Unknown epsodie id tpye: {}".format(epidType))
         
     else:
         queue["series_name"] = seriesName
@@ -451,24 +456,24 @@ def updateQueue(tpe, title_keywords):
         ep_dic[tpe["epid"]] = cep
         
     queueStr = json.dumps(queue, indent=4, sort_keys=False, ensure_ascii=False)
-    #LOGGER.debug("Update queue: {}".format(queueStr))
+    #logger.debug("Update queue: {}".format(queueStr))
     qf = open(queueFile, 'w')
     qf.write(queueStr)
     qf.close()
     
 def downloadToIncomming(tpe, title_keywords):
-    #LOGGER.debug("(downloadToIncomming)tep:{}".format(tpe))
+    #logger.debug("(downloadToIncomming)tep:{}".format(tpe))
     pr = urlparse(tpe["url"])
-    LOGGER.info("epsode detail page: {}".format(tpe["url"]))
-    #LOGGER.debug("parser result:{}".format(pr))
+    logger.info("epsode detail page: {}".format(tpe["url"]))
+    #logger.debug("parser result:{}".format(pr))
     
     conn = http.client.HTTPSConnection(pr.netloc)
     conn.request("GET", pr.path + "?" + pr.query)
     r1 = conn.getresponse()
-    LOGGER.debug("Status: {}, Reason: {}".format(r1.status, r1.reason))
+    logger.debug("Status: {}, Reason: {}".format(r1.status, r1.reason))
     if r1.status == 200:
         data2 = r1.read()
-        #LOGGER.debug("content html: {}".format(data2))
+        #logger.debug("content html: {}".format(data2))
         soup = BeautifulSoup(data2, "lxml")
         soup_mview = soup.find(id="m_view")
         soup_mview_as = soup_mview.findAll("a")
@@ -483,8 +488,8 @@ def downloadToIncomming(tpe, title_keywords):
                     cul = cu.split(",")
                     cp = cul[0].strip()
                     cn = cul[1].strip()
-                    LOGGER.info("download path: {}".format(cp))
-                    LOGGER.info("download file name: {}".format(cn))
+                    logger.info("download path: {}".format(cp))
+                    logger.info("download file name: {}".format(cn))
                     
                     ## 확장자 명에 따라 파일을 업로드 한다.
                     ## 혹시 자막파일이면 나중에 찾아서 쓸 수 있도록 다운로드 경로에 미리 저장해 두자.
@@ -498,7 +503,7 @@ def downloadToIncomming(tpe, title_keywords):
                     # 실제 다운로드 시작
                     attachDownload(pr.netloc, cp, tpe["url"], targetPath, cn)
                     ransleep = random.random()*10
-                    LOGGER.debug("sleep: {}".format(ransleep))
+                    logger.debug("sleep: {}".format(ransleep))
                     time.sleep(ransleep)
                     
         ## queue 정보를 갱신 한다. 시리즈 이름. 다운로드 추가 된 에피소드 정보.
@@ -520,12 +525,12 @@ def discoveryAndDownload(ed, leid, feedlibs):
         if matched:
             match1feeds.append(nfs)
 
-    LOGGER.debug("match1feeds size: {}".format(len(match1feeds)))
+    logger.debug("match1feeds size: {}".format(len(match1feeds)))
 
     match2feeds = list()
     ## 검색된 것이 새로운 에피소드인지 확인 한다.
     for ffs in match1feeds:
-        LOGGER.debug("matched: {}".format(ffs["title"]))
+        logger.debug("matched: {}".format(ffs["title"]))
         if epsode_id_type == "date":
             epid = checkNewEpByDate(leid, ffs["title"])
             if not epid == None:
@@ -539,7 +544,7 @@ def discoveryAndDownload(ed, leid, feedlibs):
                 ffs["ed"] = ed
                 match2feeds.append(ffs)
 
-    LOGGER.debug("match2feeds size: {}".format(len(match2feeds)))
+    logger.debug("match2feeds size: {}".format(len(match2feeds)))
 
     ## 우선순위가 높은 것 하나만 선택하는 작업을 위해 같은 에피소드끼리 묶는다.
     match3feedDic = {}
@@ -549,27 +554,27 @@ def discoveryAndDownload(ed, leid, feedlibs):
             neplist = []
             neplist.append(f2f)
             match3feedDic[epid] = neplist
-            LOGGER.debug("match3feedDic - new: [{}] {}".format(epid, len(match3feedDic[epid])))
+            logger.debug("match3feedDic - new: [{}] {}".format(epid, len(match3feedDic[epid])))
         else:
             neplist = match3feedDic.get(epid)
             neplist.append(f2f)
-            LOGGER.debug("match3feedDic - add: [{}] {}".format(epid, len(match3feedDic[epid])))
+            logger.debug("match3feedDic - add: [{}] {}".format(epid, len(match3feedDic[epid])))
     
-    #LOGGER.debug("{}".format(json.dumps(match3feedDic, indent=4, sort_keys=False, ensure_ascii=False)))
+    #logger.debug("{}".format(json.dumps(match3feedDic, indent=4, sort_keys=False, ensure_ascii=False)))
     
     ## 각 에페소드별로 하나의 게시물만 골라내는 함수를 호출한다.
     for k in match3feedDic.keys():
         te = getTopPriorityEp(match3feedDic.get(k), k)
-        #LOGGER.debug("Top priority epsode: {}".format(json.dumps(te, indent=4, sort_keys=False, ensure_ascii=False)))
+        #logger.debug("Top priority epsode: {}".format(json.dumps(te, indent=4, sort_keys=False, ensure_ascii=False)))
         if te:
             downloadToIncomming(te, title_keywords)
         
-    LOGGER.debug("===============================================================================")
+    logger.debug("===============================================================================")
     
     
 def discoveryEpsoidesFromAllFeed(dy, feedlibs):
     ed = yaml.load(codecs.open(dy, "r", "utf-8"))
-    LOGGER.debug("Current series is \"{} ({})\".".format(ed["series_name"], ed["release_year"]))
+    logger.debug("Current series is \"{} ({})\".".format(ed["series_name"], ed["release_year"]))
     
     plexlib_path = ed["plexlib_season_root"]
     feedinfo = ed["feed"]
@@ -578,7 +583,7 @@ def discoveryEpsoidesFromAllFeed(dy, feedlibs):
     seasonnumber = ed["season_number"]
     eptype = feedinfo["epsode_id_type"]
     leid = getLastEpsoideId(plexlib_path, serieskey, eptype, seriesname, seasonnumber)
-    LOGGER.info("Last epsoid id: {}".format(leid))
+    logger.info("Last epsoid id: {}".format(leid))
     #keys = ed.feed.necessary_title_keywords
     ## 받아야 할 모든 항목을 feed-json에서 확인
     ##  - keyword로 찾은 다음. epsoide 번호 기준 새로운 항목을 확인.
@@ -595,13 +600,17 @@ def findNewEpsoides():
         feedlibs = feedlibs + json.loads(ff.read())
         ff.close()
     
-    LOGGER.debug("feedlibs length: {}".format(len(feedlibs)))
+    logger.debug("feedlibs length: {}".format(len(feedlibs)))
     
     ## seriesdef/*.def.yaml 파일들을 읽어 들인다.
     for name in glob.glob(os.path.join(rspath, CONST.seriesdef_path_name) + '/*.def.yaml'):
-        LOGGER.debug("Feed list file: {}".format(name))
+        logger.debug("Feed list file: {}".format(name))
         discoveryEpsoidesFromAllFeed(name, feedlibs)
     
+    logger.info("All task complete.")
+    logger.info("===============================================")
+    logger.info("-----------------------------------------------")
+
 def main():
     checkrspath()
     startLogging()
