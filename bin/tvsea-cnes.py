@@ -520,7 +520,7 @@ def discoveryAndDownload(ed, leid, feedlibs):
     for nfs in feedlibs:
         matched = True
         for tk in title_keywords:
-            if nfs["title"].upper().find(tk.upper()) < 0:
+            if nfs["title"].upper().find(str(tk).upper()) < 0:
                 matched = False
         if matched:
             match1feeds.append(nfs)
@@ -607,15 +607,23 @@ def findNewEpsoides():
         logger.debug("Feed list file: {}".format(name))
         discoveryEpsoidesFromAllFeed(name, feedlibs)
     
+
+def main():
+    try:
+        checkrspath()
+        startLogging()
+        updatefeed()
+        findNewEpsoides()
+    except OSError as err:
+        logger.error("OS error: {0}".format(err))
+    except ValueError:
+        logger.error("Could not convert data to an integer.")
+    except:
+        logger.error("Unexpected error:", sys.exc_info()[0])
+        
     logger.info("All task complete.")
     logger.info("===============================================")
     logger.info("-----------------------------------------------")
-
-def main():
-    checkrspath()
-    startLogging()
-    updatefeed()
-    findNewEpsoides()
 
 if __name__ == "__main__":
     main()
