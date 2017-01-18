@@ -356,34 +356,29 @@ def dist(queue_name):
                 download_content["tvshow_file"]
                 name, ext = os.path.splitext(download_content["tvshow_file"])
                 if ext == ".mp4" or ext == ".m4v":
-                    if distByMv(queue, download_content, lib_target_name):
-                        dist_result = True
+                    dist_result = distByMv(queue, download_content, lib_target_name)
                         
                 else:
                     if ext == ".mkv":
-                        if distByRepac(queue, download_content, lib_target_name):
-                            dist_result = True
+                        dist_result = distByRepac(queue, download_content, lib_target_name)
                             
                     else:
-                        if distByTrans(queue, download_content, lib_target_name):
-                            dist_result = True
+                        dist_result = distByTrans(queue, download_content, lib_target_name)
                             
             else:
-                if distByTrans(queue, download_content, lib_target_name):
-                    dist_result = True
+                dist_result = distByTrans(queue, download_content, lib_target_name)
                     
-                    
-        # 처리 이력을 저장.
-        current_string = datetime.now().strftime("%Y%m%d_%H%M%S.%f")
-        contentStr = json.dumps(download_content, indent=4, sort_keys=False, ensure_ascii=False)
-        rqfName = os.path.join(rspath, CONST.history_path_name, "fail", current_string + '.result.json')
-        if dist_result:
-            rqfName = os.path.join(rspath, CONST.history_path_name, "success", current_string + '.result.json')
-        rf = open(rqfName, 'w')
-        rf.write(contentStr)
-        rf.close()
-        
-        epid_list.append(epid)
+            # 처리 이력을 저장.
+            current_string = datetime.now().strftime("%Y%m%d_%H%M%S.%f")
+            contentStr = json.dumps(download_content, indent=4, sort_keys=False, ensure_ascii=False)
+            rqfName = os.path.join(rspath, CONST.history_path_name, "fail", current_string + '.result.json')
+            if dist_result:
+                rqfName = os.path.join(rspath, CONST.history_path_name, "success", current_string + '.result.json')
+            rf = open(rqfName, 'w')
+            rf.write(contentStr)
+            rf.close()
+            
+            epid_list.append(epid)
         
     # 처리 완료 후 queue에서 항목 제거
     for epid in epid_list:
@@ -419,7 +414,7 @@ def main():
     except ValueError:
         logger.error("Could not convert data to an integer.")
     except:
-        logger.error("Unexpected error:", sys.exc_info()[0])
+        logger.error("Unexpected error: {}".format(sys.exc_info()[0]))
         
     # unlocking
     unLock()

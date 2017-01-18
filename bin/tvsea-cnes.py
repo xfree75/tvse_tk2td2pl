@@ -140,7 +140,7 @@ def getKtvList(bo_table_value):
     torrcontentlist = []
     conn = http.client.HTTPSConnection("m.torrentkim5.net")
     #TODO: range는 설정하고, 계산하여 처리 하도록 해야함.
-    pageCountForFeed = 3
+    pageCountForFeed = 5
     for pagenum in range(1, pageCountForFeed + 1):
 
         if pagenum == 1:
@@ -493,6 +493,7 @@ def downloadToIncomming(tpe, title_keywords):
                     
                     ## 확장자 명에 따라 파일을 업로드 한다.
                     ## 혹시 자막파일이면 나중에 찾아서 쓸 수 있도록 다운로드 경로에 미리 저장해 두자.
+                    ##TODO: torrent로 끝나지 않는 torrent 파일이 있다. magnet을 이용해야 하나?
                     watchDirPath = "/storage/local/mforce2-local/transmission-daemon/watch-dir"
                     downloadDirPath = "/storage/local/mforce2-local/transmission-daemon/downloads"
                     if cn.endswith('.torrent'):
@@ -619,7 +620,7 @@ def main():
     except ValueError:
         logger.error("Could not convert data to an integer.")
     except:
-        logger.error("Unexpected error:", sys.exc_info()[0])
+        logger.error("Unexpected error: {}".format(sys.exc_info()[0]))
         
     logger.info("All task complete.")
     logger.info("===============================================")
