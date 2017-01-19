@@ -338,11 +338,29 @@ def dist(queue_name):
     season_number = queue["season_number"]
     release_year = queue["release_year"]
     epsode_id_type = queue["epsode_id_type"]
+    plexlib_season_root = queue["plexlib_season_root"]
     epid_list = []
     for epid in ep_dic.keys():
         dist_result = False
         download_content = ep_dic[epid]
         if download_content["download_complete"]:
+            # 저장할 경로가 생성되지 않았다면, 경로를 생성
+            if not os.path.isdir(plexlib_season_root):
+                logger.info("Make new season root path: {}".format(plexlib_season_root))
+                try:
+                    os.makedirs(plexlib_season_root)
+                except OSError as exc:  # Python >2.5
+                    logger.error("Fail to mkdirs : {}".foramt(exc))
+                    raise
+                except NameError as ne:
+                    traceback.print_exc()
+                    logger.error("NameError. Fail to mkdirs : {}".foramt(ne))
+                    raise
+                except AttributeError as ae:
+                    traceback.print_exc()
+                    logger.error("Attribute Error. Fail to mkdirs : {}".foramt(ae))
+                    raise
+                    
             # 라이브러리에 저장될 파일 이름.
             lib_target_name = ""
             if epsode_id_type == "date":
@@ -380,7 +398,7 @@ def dist(queue_name):
             
             epid_list.append(epid)
         
-    # 처리 완료 후 queue에서 항목 제거
+    # 처리 완료된 것들을 queue에서 항목 제거
     for epid in epid_list:
         del ep_dic[epid]
     
