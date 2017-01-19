@@ -511,8 +511,12 @@ def downloadToIncomming(tpe, title_keywords):
                     if cn.endswith('.torrent'):
                         targetPath = watchDirPath
                     else:
-                        targetPath = downloadDirPath
-                    
+                        if cn[-4:-3] == ".":
+                            targetPath = downloadDirPath
+                        else:
+                            targetPath = watchDirPath
+                            cn = cn + ".torrent"
+                            
                     # 실제 다운로드 시작
                     attachDownload(pr.netloc, cp, tpe["url"], targetPath, cn)
                     ransleep = random.random()*10
