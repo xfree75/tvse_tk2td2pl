@@ -186,7 +186,7 @@ def queueUpdate(queue_name):
     release_year = queue["release_year"]
     epsode_id_type = queue["epsode_id_type"]
     
-    queue_update_flag = Fasle
+    queue_update_flag = False
     for epid in ep_dic.keys():
         download_content = ep_dic[epid]
         logger.debug("queud epid: {}, download complete: {}".format(download_content["epid"], download_content["download_complete"]))
