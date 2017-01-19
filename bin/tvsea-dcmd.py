@@ -185,6 +185,8 @@ def queueUpdate(queue_name):
     series_name = queue["series_name"]
     release_year = queue["release_year"]
     epsode_id_type = queue["epsode_id_type"]
+    
+    queue_update_flag = Fasle
     for epid in ep_dic.keys():
         download_content = ep_dic[epid]
         logger.debug("queud epid: {}, download complete: {}".format(download_content["epid"], download_content["download_complete"]))
@@ -200,11 +202,13 @@ def queueUpdate(queue_name):
                             logger.info("Download complete. Updating queue download stat.")
                             download_content["download_complete"] = True
                             download_content["tvshow_file"] = os.path.basename(f)
+                            queue_update_flag = True
     
-    qf = open(queue_name, 'w')
-    queue = qf.write(json.dumps(queue, indent=4, sort_keys=False, ensure_ascii=False))
-    qf.close()
-
+    if queue_update_flag: 
+        qf = open(queue_name, 'w')
+        queue = qf.write(json.dumps(queue, indent=4, sort_keys=False, ensure_ascii=False))
+        qf.close()
+    
     
 def downloadQueuesUpdate():
     '''
@@ -403,10 +407,11 @@ def dist(queue_name):
         del ep_dic[epid]
     
     # 처리 완료된 항목이 제거된 queue를 다시 저장.
-    queueStr = json.dumps(queue, indent=4, sort_keys=False, ensure_ascii=False)
-    qf = open(queue_name, 'w')
-    qf.write(queueStr)
-    qf.close()
+    if len(epid_list) > 0:
+        queueStr = json.dumps(queue, indent=4, sort_keys=False, ensure_ascii=False)
+        qf = open(queue_name, 'w')
+        qf.write(queueStr)
+        qf.close()
     
     # 보관 개수 보다 많은 항목은 자동 삭제.
     removeOldEpsoide(queue["plexlib_season_root"], queue["store_count"])
