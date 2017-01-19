@@ -211,6 +211,11 @@ def updatefeed():
     saveJsonArticle(getKtvList(bo_table_mid)          , CONST.midfeedlib_name)
 
 def getLastEpsoideNumberAtPlex(season_root, seriesname, seasonnumber):
+    # season root 디렉토리가 없다면 기본 값을 반환.
+    if not os.path.isdir(season_root):
+        logger.warn("Season root path is not exist: {}".format(season_root))
+        return 0
+        
     # 마지막 번호를 구해서 반환. 파일조차 없다면. 0을 반환.
     videoList = glob.glob(os.path.join(season_root, seriesname + "*"))
     logger.debug("{}'s video file count: {}".format(seriesname, str(len(videoList))))
@@ -230,6 +235,13 @@ def getLastEpsoideNumberAtPlex(season_root, seriesname, seasonnumber):
     return max(epnumlist)
     
 def getLastEpsoideDateAtPlex(season_root, seriesname):
+    # season root 디렉토리가 없다면 기본 값을 반환.
+    if not os.path.isdir(season_root):
+        logger.warn("Season root path is not exist: {}".format(season_root))
+        ## 좀 과거의 값을 반환 하도록 한다.
+        ayearago = datetime.now() - relativedelta(years=1)
+        return ayearago.strftime("%Y-%m-%d")
+        
     # 마지막 날짜를 구해서 반환. 파일조차 없다면. 적당한 과거의 날짜를 반환.
     videoList = glob.glob(os.path.join(season_root, seriesname + "*"))
     logger.debug("{}'s video file count: {}".format(seriesname, str(len(videoList))))
