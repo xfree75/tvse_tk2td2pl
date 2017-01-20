@@ -21,13 +21,6 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
-#logging.basicConfig(level=logging.DEBUG)
-#LOGGER = logging.getLogger(os.path.basename(__file__))
-#LOGGER = None
-
-##TODO: 미디어 라이브러리 폴더가 없는 경우. 경고 로깅 후 경로를 생성 하도록 처리.
-##TODO: 미디어 라이브러리에 영상이 없고, queue도 없을 때(leid number가 None)이 반환되지 않도록? 아니면 None에 대해 방어 코딩 등등..
-##TODO: 로깅을 파일에 하도록 처리
 
 def constant(f):
     def fset(self, value):
@@ -189,7 +182,7 @@ def checkRecentUpdate():
             difftime = (current - mtime) / 60
             logger.debug("Current feed update time: {}. Diff(min): {}.".format(mtime, difftime))
             
-            if difftime < 180:
+            if difftime < 40:
                 logger.info("Already updated just before {0:.2f}(min). Skip update feedlib. ".format(difftime))
                 return False
     return True
@@ -382,7 +375,7 @@ def getTopPriorityEp(el, k):
     return None
     
 def attachDownload(httpsHost, urlPath, my_referer, localPath, name):
-    ##referer 설정을 위해 httplib.HTTPConnection를 사용 해야 한다.
+    #referer 설정을 위해 httplib.HTTPConnection를 사용 해야 한다.
     logger.debug("httpsHost: {}, urlPath: {}, name: {}, my_referer: {}, localPath: {}".format(httpsHost, urlPath, name, my_referer, localPath))
     
     s = requests.Session()
@@ -503,8 +496,8 @@ def downloadToIncomming(tpe, title_keywords):
                     logger.info("download path: {}".format(cp))
                     logger.info("download file name: {}".format(cn))
                     
-                    ## 확장자 명에 따라 파일을 업로드 한다.
-                    ## 혹시 자막파일이면 나중에 찾아서 쓸 수 있도록 다운로드 경로에 미리 저장해 두자.
+                    # 확장자 명에 따라 파일을 업로드 한다.
+                    # 혹시 자막파일이면 나중에 찾아서 쓸 수 있도록 다운로드 경로에 미리 저장해 두자.
                     ##TODO: torrent로 끝나지 않는 torrent 파일이 있다. magnet을 이용해야 하나?
                     watchDirPath = "/storage/local/mforce2-local/transmission-daemon/watch-dir"
                     downloadDirPath = "/storage/local/mforce2-local/transmission-daemon/downloads"
@@ -545,7 +538,7 @@ def discoveryAndDownload(ed, leid, feedlibs):
     logger.debug("match1feeds size: {}".format(len(match1feeds)))
 
     match2feeds = list()
-    ## 검색된 것이 새로운 에피소드인지 확인 한다.
+    # 검색된 것이 새로운 에피소드인지 확인 한다.
     for ffs in match1feeds:
         logger.debug("matched: {}".format(ffs["title"]))
         if epsode_id_type == "date":
@@ -563,7 +556,7 @@ def discoveryAndDownload(ed, leid, feedlibs):
 
     logger.debug("match2feeds size: {}".format(len(match2feeds)))
 
-    ## 우선순위가 높은 것 하나만 선택하는 작업을 위해 같은 에피소드끼리 묶는다.
+    # 우선순위가 높은 것 하나만 선택하는 작업을 위해 같은 에피소드끼리 묶는다.
     match3feedDic = {}
     for f2f in match2feeds:
         epid = f2f["epid"]
@@ -579,7 +572,7 @@ def discoveryAndDownload(ed, leid, feedlibs):
     
     #logger.debug("{}".format(json.dumps(match3feedDic, indent=4, sort_keys=False, ensure_ascii=False)))
     
-    ## 각 에페소드별로 하나의 게시물만 골라내는 함수를 호출한다.
+    # 각 에페소드별로 하나의 게시물만 골라내는 함수를 호출한다.
     for k in match3feedDic.keys():
         te = getTopPriorityEp(match3feedDic.get(k), k)
         #logger.debug("Top priority epsode: {}".format(json.dumps(te, indent=4, sort_keys=False, ensure_ascii=False)))
@@ -602,15 +595,15 @@ def discoveryEpsoidesFromAllFeed(dy, feedlibs):
     leid = getLastEpsoideId(plexlib_path, serieskey, eptype, seriesname, seasonnumber)
     logger.info("Last epsoid id: {}".format(leid))
     #keys = ed.feed.necessary_title_keywords
-    ## 받아야 할 모든 항목을 feed-json에서 확인
-    ##  - keyword로 찾은 다음. epsoide 번호 기준 새로운 항목을 확인.
-    ## 새로운 항목은 torrent 파일을 다운로드 받아 추가.
-    ## 다운로드 정보 파일에 정보를 추가.
+    # 받아야 할 모든 항목을 feed-json에서 확인
+    #  - keyword로 찾은 다음. epsoide 번호 기준 새로운 항목을 확인.
+    # 새로운 항목은 torrent 파일을 다운로드 받아 추가.
+    # 다운로드 정보 파일에 정보를 추가.
     discoveryAndDownload(ed, leid, feedlibs)
     
     
 def findNewEpsoides():
-    ## feedlib/*.json 파일들을 읽어 들인다.
+    # feedlib/*.json 파일들을 읽어 들인다.
     feedlibs = []
     for feedfile in glob.glob(os.path.join(rspath, CONST.feedlib_path_name) + '/*.json'):
         ff = open(feedfile, 'r')
@@ -619,7 +612,7 @@ def findNewEpsoides():
     
     logger.debug("feedlibs length: {}".format(len(feedlibs)))
     
-    ## seriesdef/*.def.yaml 파일들을 읽어 들인다.
+    # seriesdef/*.def.yaml 파일들을 읽어 들인다.
     for name in glob.glob(os.path.join(rspath, CONST.seriesdef_path_name) + '/*.def.yaml'):
         logger.debug("Feed list file: {}".format(name))
         discoveryEpsoidesFromAllFeed(name, feedlibs)
