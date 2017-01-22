@@ -122,13 +122,13 @@ def matchDownloadFile(f, key_words, epid, epsode_id_type, resolution, release_gr
         dateMatch = False
         if fu.find(epid) > 0:
             dateMatch = True
-        #TODO 날짜 형식을 바꿔 가면셔 모두 테스트 해본다.
-        #"%y%m%d", "%y.%m.%d", "%y-%m-%d", "%Y%m%d", "%Y.%m.%d", "%Y-%m-%d"
+        # 날짜 형식을 바꿔 가면셔 모두 테스트 해본다.
+        # "%y%m%d", "%y.%m.%d", "%y-%m-%d", "%Y%m%d", "%Y.%m.%d", "%Y-%m-%d"
         dateformats = ["%y%m%d", "%y.%m.%d", "%y-%m-%d", "%Y%m%d", "%Y.%m.%d", "%Y-%m-%d"]
         ep_dt = datetime.strptime(epid, "%Y-%m-%d")
         for df in dateformats:
             if not dateMatch:
-                if fu.find(ep_dt.strftime(df)) > 0:
+                if fu.find(ep_dt.strftime(df)) > -1:
                     dateMatch = True
                     
         if not dateMatch:
