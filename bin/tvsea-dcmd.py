@@ -77,7 +77,7 @@ def startLogging():
     fileHandler = logging.FileHandler(logfile)
     fileHandler.setFormatter(fomatter)
     logger.addHandler(fileHandler)
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
     print("Complete initialize logging. logfile: {}".format(logfile))
     logger.info("Start script.")
 
@@ -161,11 +161,16 @@ def checkWriteComplete(f):
         f = open(sizef, 'r')
         prev_size = f.readline()
         if prev_size == str(curr_size):
+            logger.info("Download check complete. Update to status at queue. size: {}, file: {}".format(curr_size, f))
             return True
-    else:
-        f = open(sizef, 'w')
-        f.write(str(curr_size))
-        f.close()
+        else:
+            # 현재 파일을 삭제하고, 결국 다시 파일을 생성 한다.
+            os.remove(sizef)
+            logger.warn("Download file size is mismatch. prev_size: {} / curr_size: {} / file: {}".format(prev_size, curr_size, f))
+    
+    f = open(sizef, 'w')
+    f.write(str(curr_size))
+    f.close()
     
     return False
     
@@ -428,10 +433,10 @@ def main():
     checkrspath()
     startLogging()
     # lock 여부 확인 및 locking 
-    acquireLock()
+    #acquireLock()
     try:
         downloadQueuesUpdate()
-        dist2plexlib()
+        #dist2plexlib()
     except OSError as err:
         logger.error("OS error: {0}".format(err))
     except ValueError:
@@ -440,7 +445,7 @@ def main():
         logger.error("Unexpected error: {}".format(sys.exc_info()[0]))
         
     # unlocking
-    unLock()
+    #unLock()
     logger.info("Unlock compete.")
     logger.info("===============================================")
     logger.info("-----------------------------------------------")
