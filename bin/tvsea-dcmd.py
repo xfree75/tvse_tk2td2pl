@@ -433,10 +433,10 @@ def main():
     checkrspath()
     startLogging()
     # lock 여부 확인 및 locking 
-    #acquireLock()
+    acquireLock()
     try:
         downloadQueuesUpdate()
-        #dist2plexlib()
+        dist2plexlib()
     except OSError as err:
         logger.error("OS error: {0}".format(err))
     except ValueError:
@@ -445,7 +445,7 @@ def main():
         logger.error("Unexpected error: {}".format(sys.exc_info()[0]))
         
     # unlocking
-    #unLock()
+    unLock()
     logger.info("Unlock compete.")
     logger.info("===============================================")
     logger.info("-----------------------------------------------")
