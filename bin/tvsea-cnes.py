@@ -91,7 +91,7 @@ def startLogging():
     fileHandler = logging.FileHandler(logfile)
     fileHandler.setFormatter(fomatter)
     logger.addHandler(fileHandler)
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
     print("Complete initialize logging. logfile: {}".format(logfile))
 
 
@@ -138,21 +138,21 @@ def getKtvList(bo_table_value):
 
         if pagenum == 1:
             ransleep = random.random()*100
-            logger.debug("sleep: {}".format(ransleep))
+            logger.info("sleep: {}".format(ransleep))
             time.sleep(ransleep)
 
         urlpath = "/bc.php?bo_table="+bo_table_value+"&page=" + str(pagenum)
         logger.debug("content list path: {}".format(urlpath))
         conn.request("GET", urlpath)
         r1 = conn.getresponse()
-        logger.debug("Status: {}, Reason: {}".format(r1.status, r1.reason))
+        logger.info("Status: {}, Reason: {}".format(r1.status, r1.reason))
         if r1.status == 200:
             data1 = r1.read()
             torrcontentlist = torrcontentlist +listhtml2obj(data1)
             # 바깥 for loop 를 설정에 의해 제어하도록 하면서, 이곳의 값도 그 값을 가지고 처리 하도록 변경 해야 한다.
             if pagenum == pageCountForFeed: break
             ransleep = random.random()*10
-            logger.debug("sleep: {}".format(ransleep))
+            logger.info("sleep: {}".format(ransleep))
             time.sleep(ransleep)
 
     conn.close()
@@ -211,7 +211,7 @@ def getLastEpsoideNumberAtPlex(season_root, seriesname, seasonnumber):
         
     # 마지막 번호를 구해서 반환. 파일조차 없다면. 0을 반환.
     videoList = glob.glob(os.path.join(season_root, seriesname + "*"))
-    logger.debug("{}'s video file count: {}".format(seriesname, str(len(videoList))))
+    logger.info("{}'s video file count: {}".format(seriesname, str(len(videoList))))
 
     if len(videoList) == 0:
         return 0
@@ -376,12 +376,12 @@ def getTopPriorityEp(el, k):
     
 def attachDownload(httpsHost, urlPath, my_referer, localPath, name):
     #referer 설정을 위해 httplib.HTTPConnection를 사용 해야 한다.
-    logger.debug("httpsHost: {}, urlPath: {}, name: {}, my_referer: {}, localPath: {}".format(httpsHost, urlPath, name, my_referer, localPath))
+    logger.info("httpsHost: {}, urlPath: {}, name: {}, my_referer: {}, localPath: {}".format(httpsHost, urlPath, name, my_referer, localPath))
     
     s = requests.Session()
     s.headers.update({'referer': my_referer})
     r = s.get("https://" + httpsHost + "/" + urlPath)
-    logger.debug("Download status: {}".format(r.status_code))
+    logger.info("Download status: {}".format(r.status_code))
     if r.status_code == 200:
         data = r.content
         
@@ -513,7 +513,7 @@ def downloadToIncomming(tpe, title_keywords):
                     # 실제 다운로드 시작
                     attachDownload(pr.netloc, cp, tpe["url"], targetPath, cn)
                     ransleep = random.random()*10
-                    logger.debug("sleep: {}".format(ransleep))
+                    logger.info("download complete. sleep: {}".format(ransleep))
                     time.sleep(ransleep)
                     
         ## queue 정보를 갱신 한다. 시리즈 이름. 다운로드 추가 된 에피소드 정보.
@@ -527,7 +527,7 @@ def discoveryAndDownload(ed, leid, feedlibs):
     epsode_id_type = feed["epsode_id_type"]
 
     match1feeds = list()
-    for nfs in feedlibs:
+    for nfs in reversed(feedlibs):
         matched = True
         for tk in title_keywords:
             if nfs["title"].upper().find(str(tk).upper()) < 0:
@@ -584,7 +584,7 @@ def discoveryAndDownload(ed, leid, feedlibs):
     
 def discoveryEpsoidesFromAllFeed(dy, feedlibs):
     ed = yaml.load(codecs.open(dy, "r", "utf-8"))
-    logger.debug("Current series is \"{} ({})\".".format(ed["series_name"], ed["release_year"]))
+    logger.info("Current series is \"{} ({})\".".format(ed["series_name"], ed["release_year"]))
     
     plexlib_path = ed["plexlib_season_root"]
     feedinfo = ed["feed"]
