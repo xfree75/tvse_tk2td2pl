@@ -133,7 +133,7 @@ def getKtvList(bo_table_value):
     torrcontentlist = []
     conn = http.client.HTTPSConnection("m.torrentkim5.net")
     #TODO: range는 설정하고, 계산하여 처리 하도록 해야함.
-    pageCountForFeed = 5
+    pageCountForFeed = 2
     for pagenum in range(1, pageCountForFeed + 1):
 
         if pagenum == 1:
