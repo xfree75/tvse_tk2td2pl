@@ -120,7 +120,7 @@ def listhtml2obj(htmlstring):
         logger.debug("content url path[{:0>2d}]: {}: {}".format(listidx, hrefval, ahref.string))
         torrcontent = {}
         torrcontent['title'] = ahref.string
-        torrcontent['url'] = "https://m.torrentkim5.net/" + hrefval
+        torrcontent['url'] = "https://m.torrentkim10.net/" + hrefval
         torrcontentlist.append(torrcontent)
     return torrcontentlist
     
@@ -131,7 +131,7 @@ def listhtml2obj(htmlstring):
  ##
 def getKtvList(bo_table_value):
     torrcontentlist = []
-    conn = http.client.HTTPSConnection("m.torrentkim5.net")
+    conn = http.client.HTTPSConnection("m.torrentkim10.net")
     #TODO: range는 설정하고, 계산하여 처리 하도록 해야함.
     pageCountForFeed = 2
     for pagenum in range(1, pageCountForFeed + 1):
