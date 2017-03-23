@@ -91,7 +91,7 @@ def startLogging():
     fileHandler = logging.FileHandler(logfile)
     fileHandler.setFormatter(fomatter)
     logger.addHandler(fileHandler)
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
     print("Complete initialize logging. logfile: {}".format(logfile))
 
 
