@@ -439,10 +439,21 @@ def main():
     try:
         downloadQueuesUpdate()
         dist2plexlib()
-    except OSError as err:
-        logger.error("OS error: {0}".format(err))
-    except ValueError:
-        logger.error("Could not convert data to an integer.")
+    except OSError as oerr:
+        logger.error("OS error: {0}".format(oerr))
+        print("OS error: {0}".format(oerr))
+    except NameError as nerr:
+        logger.error("Name error: {0}".format(nerr))
+        print("Name error: {0}".format(nerr))
+    except ValueError as verr:
+        logger.error("ValueError: {0}".format(verr))
+        print("Value error: {0}".format(verr))
+    except TypeError as terr:
+        logger.error("TypeError: {0}".format(terr))
+        print("TypeError error: {0}".format(terr))
+    except KeyError as kerr:
+        logger.error("KeyError error: {0}".format(kerr))
+        print("KeyError error: {0}".format(kerr))
     except:
         logger.error("Unexpected error: {}".format(sys.exc_info()[0]))
 
