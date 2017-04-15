@@ -375,9 +375,10 @@ def dist(queue_name):
             if epsode_id_type == "date":
                 lib_target_name = series_name + " - " + epid + ".m4v"
             else:
+                epid_s = epid
                 if int(epid) < 10:
-                    epid = "0" + str(epid)
-                    lib_target_name = series_name + " - s" + season_number + "e" + epid + ".m4v"
+                    epid_s = "0" + str(epid)
+                lib_target_name = series_name + " - s" + season_number + "e" + epid_s + ".m4v"
 
             vcp = not download_content["force_video_encoding"]
             acp = not download_content["force_audio_encoding"]
