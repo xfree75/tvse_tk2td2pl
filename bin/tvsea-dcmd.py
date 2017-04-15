@@ -56,7 +56,7 @@ def checkrspath():
     rspath = os.path.join(os.path.expanduser("~"), "." + CONST.resource_name)
     print("Resource name: {}".format(CONST.resource_name))
     print("Resource path: {}".format(rspath))
-    
+
     # check for exist resource path.
     if not os.path.exists(rspath):
         os.makedirs(rspath)
@@ -91,7 +91,7 @@ def acquireLock():
         lfo = open(lockfile, 'w')
         lfo.write(str(current))
         lfo.close()
-    
+
 def unLock():
     lockfile = os.path.join(rspath, "lock")
     if os.path.isfile(lockfile):
@@ -107,17 +107,17 @@ def unLock():
         logger.debug("Complete remove lockfile: {}".format(lockfile))
     else:
         logger.warn("remove lockfile - lock file is not exist: {}".format(lockfile))
-    
-    
+
+
 def matchDownloadFile(f, key_words, epid, epsode_id_type, resolution, release_group):
     fu = f.upper()
     #logger.debug("Try matching: {}. words: {}, epid: {}, resolution: {}, release group: {}".format(f, key_words, epid, resolution, release_group))
-    
+
     for kw in key_words:
         if fu.find(str(kw).upper()) < 0:
             #logger.debug("Fail keyword matching: {} {}".format(str(kw).upper(), fu.find(str(kw).upper())))
             return False
-            
+
     if epsode_id_type == "date":
         dateMatch = False
         if fu.find(epid) > 0:
@@ -130,7 +130,7 @@ def matchDownloadFile(f, key_words, epid, epsode_id_type, resolution, release_gr
             if not dateMatch:
                 if fu.find(ep_dt.strftime(df)) > -1:
                     dateMatch = True
-                    
+
         if not dateMatch:
             logger.debug("Fail epid matching: {}".format(ep_dt))
             return False
@@ -141,17 +141,17 @@ def matchDownloadFile(f, key_words, epid, epsode_id_type, resolution, release_gr
         if fu.find("E" + str(epids)) < 0:
             logger.debug("Fail epid matching: {}".format("E" + str(epid)))
             return False
-    
+
     if fu.find(resolution.upper()) < 0:
         logger.debug("Fail resolution matching: {}".format(resolution.upper()))
         return False
     if fu.find(release_group.upper()) < 0:
         logger.debug("Fail epid matching: {}".format(release_group.upper()))
         return False
-    
+
     #logger.debug("found match: {}. words: {}, epid: {}, resolution: {}, release group: {}".format(f, key_words, epid, resolution, release_group))
     return True
-    
+
 def checkWriteComplete(f):
     # 현재 그 파일의 크기를 확인.
     statinfo = os.stat(f)
@@ -167,30 +167,30 @@ def checkWriteComplete(f):
             # 현재 파일을 삭제하고, 결국 다시 파일을 생성 한다.
             os.remove(sizef)
             logger.warn("Download file size is mismatch. prev_size: {} / curr_size: {} / file: {}".format(prev_size, curr_size, f))
-    
+
     f = open(sizef, 'w')
     f.write(str(curr_size))
     f.close()
-    
+
     return False
-    
+
 def queueUpdate(queue_name):
     ##TODO: 환경설정 값으로 바꾸어야 한다.
     tm_d_path = "/storage/local/mforce2-local/transmission-daemon/downloads"
     tm_d_files = glob.glob(os.path.join(tm_d_path, "*"))
     logger.debug("transmission download file list: {}".format(tm_d_files))
-    
+
     qf = open(queue_name, 'r')
     queue = json.loads(qf.read())
     qf.close()
     logger.debug("queue: {}".format(json.dumps(queue, indent=4, sort_keys=False, ensure_ascii=False)))
-    
+
     ep_dic = queue["ep_dic"]
     key_words = queue["title_keywords"]
     series_name = queue["series_name"]
     release_year = queue["release_year"]
     epsode_id_type = queue["epsode_id_type"]
-    
+
     queue_update_flag = False
     for epid in ep_dic.keys():
         download_content = ep_dic[epid]
@@ -208,13 +208,13 @@ def queueUpdate(queue_name):
                             download_content["download_complete"] = True
                             download_content["tvshow_file"] = os.path.basename(f)
                             queue_update_flag = True
-    
-    if queue_update_flag: 
+
+    if queue_update_flag:
         qf = open(queue_name, 'w')
         queue = qf.write(json.dumps(queue, indent=4, sort_keys=False, ensure_ascii=False))
         qf.close()
-    
-    
+
+
 def downloadQueuesUpdate():
     '''
     queue를 읽어 다운로드에 추가된 파일을 확인.
@@ -228,7 +228,7 @@ def downloadQueuesUpdate():
     for queue_name in glob.glob(os.path.join(rspath, CONST.queue_path_name) + '/*.queue.json'):
         logger.debug("Queue file: {}".format(queue_name))
         queueUpdate(queue_name)
-    
+
 def removeOldEpsoide(path, count):
     # count 가 0 이라면 무시된다.
     if count == 0:
@@ -247,42 +247,42 @@ def removeOldEpsoide(path, count):
             os.remove(media)
             logger.info("removed old file:{}".format(media))
         mfile_count = mfile_count + 1
-    
+
 def distByMv(q, d, t):
     logger.info("dist - Just move {}".format(t))
     ##TODO: 환경설정 값으로 바꾸어야 한다.
     tm_d_path = "/storage/local/mforce2-local/transmission-daemon/downloads"
     source = os.path.join(tm_d_path, d["tvshow_file"])
     target = os.path.join(q["plexlib_season_root"], t)
-    
+
     # 소스파일이 존재 하지 않는다면, error logging 후 return.
     if not os.path.isfile(source):
         logger.error("Source file is not exist: {}".format(source))
         return False
-        
+
     os.rename(source, target)
     logger.info("Complete move to plex lib: {}".format(target))
-    
+
     # download 경로의 .size 파일 제거.
     if os.path.isfile(source + ".size"):
         os.remove(source + ".size")
-        
+
     # 보관 개수 보다 많은 항목은 자동 삭제.
     removeOldEpsoide(q["plexlib_season_root"], q["store_count"])
-    
+
     return True
-    
+
 def distByRepac(q, d, t):
     logger.info("dist - Just repackaging {}".format(t))
     ##TODO: 환경설정 값으로 바꾸어야 한다.
     tm_d_path = "/storage/local/mforce2-local/transmission-daemon/downloads"
     source = os.path.join(tm_d_path, d["tvshow_file"])
-    
+
     # 소스파일이 존재 하지 않는다면, error logging 후 return.
     if not os.path.isfile(source):
         logger.error("Source file is not exist: {}".format(source))
         return False
-    
+
     cstr = "/home/jin/bin/ktvshowhdenc --no-interact --rm-source --over-write"
     cstr = cstr + " --out-path \"" + q["plexlib_season_root"] + "/\""
     cstr = cstr + " --out-name \"" + t + "\""
@@ -293,28 +293,28 @@ def distByRepac(q, d, t):
     ##TODO: 실행 출력을 어딘가 저장 하도록 한다.
     os.system(cstr)
     logger.info("Complete repackaging to plex lib: {}".format(os.path.join(q["plexlib_season_root"], t)))
-    
+
     # download 경로의 .size 파일 제거.
     if os.path.isfile(source + ".size"):
         os.remove(source + ".size")
-        
+
     # 보관 개수 보다 많은 항목은 자동 삭제.
     removeOldEpsoide(q["plexlib_season_root"], q["store_count"])
-    
+
     return True
-    
+
 def distByTrans(q, d, t):
     logger.info("dist - with transcoding {}, v:{}, a:{}.".format(t, d["force_video_encoding"], d["force_audio_encoding"]))
     # 환경설정 값으로 바꾸어야 한다.
     tm_d_path = "/storage/local/mforce2-local/transmission-daemon/downloads"
     source = os.path.join(tm_d_path, d["tvshow_file"])
     target = os.path.join(q["plexlib_season_root"], t)
-    
+
     # 소스파일이 존재 하지 않는다면, error logging 후 return.
     if not os.path.isfile(source):
         logger.error("Source file is not exist: {}".format(source))
         return False
-    
+
     cstr = "/home/jin/bin/ktvshowhdenc --no-interact --rm-source --over-write"
     cstr = cstr + " --out-path \"" + q["plexlib_season_root"] + "/\""
     cstr = cstr + " --out-name \"" + t + "\""
@@ -327,21 +327,21 @@ def distByTrans(q, d, t):
     ##TODO: 실행 출력을 어딘가 저장 하도록 한다.
     os.system(cstr)
     logger.info("Complete transcoding to plex lib: {}".format(os.path.join(q["plexlib_season_root"], t)))
-    
+
     # download 경로의 .size 파일 제거.
     if os.path.isfile(source + ".size"):
         os.remove(source + ".size")
-        
+
     # 보관 개수 보다 많은 항목은 자동 삭제.
     removeOldEpsoide(q["plexlib_season_root"], q["store_count"])
-    
+
     return True
-    
+
 def dist(queue_name):
     qf = open(queue_name, 'r')
     queue = json.loads(qf.read())
     qf.close()
-    
+
     ep_dic = queue["ep_dic"]
     series_name = queue["series_name"]
     season_number = queue["season_number"]
@@ -369,14 +369,16 @@ def dist(queue_name):
                     traceback.print_exc()
                     logger.error("Attribute Error. Fail to mkdirs : {}".foramt(ae))
                     raise
-                    
+
             # 라이브러리에 저장될 파일 이름.
             lib_target_name = ""
             if epsode_id_type == "date":
                 lib_target_name = series_name + " - " + epid + ".m4v"
             else:
-                lib_target_name = series_name + " - s" + season_number + "e" + epid + ".m4v"
-                
+                if epid < 10:
+                    epid = "0" + str(epid)
+                    lib_target_name = series_name + " - s" + season_number + "e" + epid + ".m4v"
+
             vcp = not download_content["force_video_encoding"]
             acp = not download_content["force_audio_encoding"]
             if vcp and acp:
@@ -384,17 +386,17 @@ def dist(queue_name):
                 name, ext = os.path.splitext(download_content["tvshow_file"])
                 if ext == ".mp4" or ext == ".m4v":
                     dist_result = distByMv(queue, download_content, lib_target_name)
-                        
+
                 else:
                     if ext == ".mkv":
                         dist_result = distByRepac(queue, download_content, lib_target_name)
-                            
+
                     else:
                         dist_result = distByTrans(queue, download_content, lib_target_name)
-                            
+
             else:
                 dist_result = distByTrans(queue, download_content, lib_target_name)
-                    
+
             # 처리 이력을 저장.
             current_string = datetime.now().strftime("%Y%m%d_%H%M%S.%f")
             contentStr = json.dumps(download_content, indent=4, sort_keys=False, ensure_ascii=False)
@@ -404,35 +406,35 @@ def dist(queue_name):
             rf = open(rqfName, 'w')
             rf.write(contentStr)
             rf.close()
-            
+
             epid_list.append(epid)
-        
+
     # 처리 완료된 것들을 queue에서 항목 제거
     for epid in epid_list:
         del ep_dic[epid]
-    
+
     # 처리 완료된 항목이 제거된 queue를 다시 저장.
     if len(epid_list) > 0:
         queueStr = json.dumps(queue, indent=4, sort_keys=False, ensure_ascii=False)
         qf = open(queue_name, 'w')
         qf.write(queueStr)
         qf.close()
-    
+
     # 보관 개수 보다 많은 항목은 자동 삭제.
     removeOldEpsoide(queue["plexlib_season_root"], queue["store_count"])
-    
+
 def dist2plexlib():
     ## queue/*.queue.json 파일들을 읽어 들인다.
     for queue_name in glob.glob(os.path.join(rspath, CONST.queue_path_name) + '/*.queue.json'):
         logger.debug("Queue file: {}".format(queue_name))
         dist(queue_name)
-    
+
     logger.info("All task complete.")
-    
+
 def main():
     checkrspath()
     startLogging()
-    # lock 여부 확인 및 locking 
+    # lock 여부 확인 및 locking
     acquireLock()
     try:
         downloadQueuesUpdate()
@@ -443,7 +445,7 @@ def main():
         logger.error("Could not convert data to an integer.")
     except:
         logger.error("Unexpected error: {}".format(sys.exc_info()[0]))
-        
+
     # unlocking
     unLock()
     logger.info("Unlock compete.")

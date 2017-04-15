@@ -183,7 +183,7 @@ def getWizKtvList(tvGenreName):
     for pagenum in range(1, pageCountForFeed + 1):
 
         if pagenum == 1:
-            ransleep = random.random()*8
+            ransleep = random.random()*80
             logger.info("sleep: {}".format(ransleep))
             time.sleep(ransleep)
             # 1페이지는 pageurl을 줘도 되고 안줘도 되니까, 그냥 안주도록 해본다.
