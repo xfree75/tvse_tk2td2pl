@@ -375,7 +375,7 @@ def dist(queue_name):
             if epsode_id_type == "date":
                 lib_target_name = series_name + " - " + epid + ".m4v"
             else:
-                if epid < 10:
+                if int(epid) < 10:
                     epid = "0" + str(epid)
                     lib_target_name = series_name + " - s" + season_number + "e" + epid + ".m4v"
 
