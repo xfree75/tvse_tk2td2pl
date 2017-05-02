@@ -91,12 +91,12 @@ def startLogging():
     fomatter = logging.Formatter('[%(levelname)s|%(filename)s:%(lineno)s] %(asctime)s > %(message)s')
     fileHandler = logging.FileHandler(logfile)
     fileHandler.setFormatter(fomatter)
-    consoleHandler = logging.StreamHandler()
+    # consoleHandler = logging.StreamHandler()
     consoleHandler.setFormatter(fomatter)
 
     logger.addHandler(fileHandler)
     logger.addHandler(consoleHandler)
-    logger.setLevel(logging.DEBUG)
+    logger.setLevel(logging.INFO)
     print("Complete initialize logging. logfile: {}".format(logfile))
 
 
@@ -200,7 +200,7 @@ def getGirlsKtvList(tvGenreName):
     for pagenum in range(1, pageCountForFeed + 1):
 
         if pagenum == 1:
-            ransleep = random.random()*8
+            ransleep = (random.random()*80) + 5
             logger.info("sleep: {}".format(ransleep))
             time.sleep(ransleep)
             # 1페이지는 pageurl을 줘도 되고 안줘도 되니까, 그냥 안주도록 해본다.
@@ -217,7 +217,7 @@ def getGirlsKtvList(tvGenreName):
             girlsContentlist = girlsContentlist + girlslisthtml2obj(data)
             # 바깥 for loop 를 설정에 의해 제어하도록 하면서, 이곳의 값도 그 값을 가지고 처리 하도록 변경 해야 한다.
             if pagenum == pageCountForFeed: break
-            ransleep = random.random()*8
+            ransleep = (random.random()*8) + 2
             logger.info("sleep: {}".format(ransleep))
             time.sleep(ransleep)
     return girlsContentlist
@@ -254,8 +254,8 @@ def checkRecentUpdate():
 
 
 def updategirlsfeed():
-    # if not checkRecentUpdate():
-    #     return
+    if not checkRecentUpdate():
+        return
 
     saveJsonArticle(getGirlsKtvList("torrent_kortv_drama"), "girls_" + CONST.dramafeedlib_name)
     saveJsonArticle(getGirlsKtvList("torrent_kortv_ent"),   "girls_" + CONST.entertainmentfeedlib_name)
@@ -526,8 +526,8 @@ def updateQueue(tpe, title_keywords):
     qf.write(queueStr)
     qf.close()
 
-# wiz에서 받아 torrentmission-daemon에 추가 한다.
-def downloadFromWizMagnet(tpe, title_keywords):
+# girls에서 받아 torrentmission-daemon에 추가 한다.
+def downloadFromGirlsMagnet(tpe, title_keywords):
     #logger.debug("(downloadToIncomming)tep:{}".format(tpe))
     ed = tpe["ed"]
     pr = urlparse(tpe["url"])
@@ -542,19 +542,27 @@ def downloadFromWizMagnet(tpe, title_keywords):
         data2 = r1.read()
         #logger.debug("content html: {}".format(data2))
         soup = BeautifulSoup(data2, "lxml")
-        soup_btn_as = soup('a', {'class':'btn btn-color btn-xs view_file_download',})
-        for soup_btn_a in soup_btn_as:
-            #logger.debug("a magnet: {}".format(soup_btn_a))
-            magnet_string = soup_btn_a['href']
-            if magnet_string.startswith('magnet:?'):
-                # transmission-remote에 magnet string을 추가.
-                logger.info("Start adding magnet: {}({}) s{} e{} : {}".format(ed["series_name"], ed["release_year"], ed["season_number"], tpe["epid"], tpe["title"]))
-                cmdstr = "transmission-remote --auth=" + ctru + ":" + ctrp + " -a \"" + magnet_string + "\""
-                result = subprocess.check_output(cmdstr, shell=True)
-                logger.info("Complete adding magnet. result: {}".format(result))
+        soup_bo_v_img_list = soup.find_all("input", attrs={"type": "text"})
+        logger.debug("input text: {}".format(soup_bo_v_img_list))
 
-        ## queue 정보를 갱신 한다. 시리즈 이름. 다운로드 추가 된 에피소드 정보.
-        updateQueue(tpe, title_keywords)
+        for soup_bo_v_img in soup_bo_v_img_list:
+
+            try:
+                magnet_string = soup_bo_v_img['value']
+                logger.debug("input value: {} / {}".format(soup_bo_v_img, magnet_string))
+                if magnet_string.startswith('magnet:?'):
+                    logger.info("Start adding magnet: {}({}) s{} e{} : {}".format(ed["series_name"], ed["release_year"], ed["season_number"], tpe["epid"], tpe["title"]))
+
+                    cmdstr = "transmission-remote --auth=" + ctru + ":" + ctrp + " -a \"" + magnet_string + "\""
+                    result = subprocess.check_output(cmdstr, shell=True)
+                    logger.info("Complete adding magnet. result: {}".format(result))
+
+                    ## queue 정보를 갱신 한다. 시리즈 이름. 다운로드 추가 된 에피소드 정보.
+                    updateQueue(tpe, title_keywords)
+
+            except KeyError as kerr:
+                logger.debug("KeyError cause by none value. html: {}".format(soup_bo_v_img))
+                continue
 
     conn.close()
 
@@ -671,7 +679,8 @@ def discoveryAndDownload(ed, leid, feedlibs):
         logger.debug("Top priority epsode: {}".format(json.dumps(te, indent=4, sort_keys=False, ensure_ascii=False)))
         if te:
             #downloadToIncomming(te, title_keywords)
-            downloadFromWizMagnet(te, title_keywords)
+            #downloadFromWizMagnet(te, title_keywords)
+            downloadFromGirlsMagnet(te, title_keywords)
 
     logger.debug("===============================================================================")
 
@@ -696,10 +705,10 @@ def discoveryEpsoidesFromAllFeed(dy, feedlibs):
     discoveryAndDownload(ed, leid, feedlibs)
 
 
-def findNewEpsoides():
+def findNewGirlsEpsoides():
     # feedlib/*.json 파일들을 읽어 들인다.
     feedlibs = []
-    for feedfile in glob.glob(os.path.join(rspath, CONST.feedlib_path_name) + '/*.json'):
+    for feedfile in glob.glob(os.path.join(rspath, CONST.feedlib_path_name) + '/girls_*.json'):
         ff = open(feedfile, 'r')
         feedlibs = feedlibs + json.loads(ff.read())
         ff.close()
@@ -718,8 +727,7 @@ def main():
         startLogging()
         loadConfig()
         updategirlsfeed()
-        #updatewizfeed()
-        #findNewEpsoides()
+        findNewGirlsEpsoides()
     except OSError as oerr:
         logger.error("OS error: {0}".format(oerr))
         print("OS error: {0}".format(oerr))
