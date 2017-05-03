@@ -95,7 +95,7 @@ def startLogging():
     # consoleHandler.setFormatter(fomatter)
 
     logger.addHandler(fileHandler)
-    logger.addHandler(consoleHandler)
+    # logger.addHandler(consoleHandler)
     logger.setLevel(logging.INFO)
     print("Complete initialize logging. logfile: {}".format(logfile))
 
