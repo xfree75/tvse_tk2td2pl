@@ -92,7 +92,7 @@ def startLogging():
     fileHandler = logging.FileHandler(logfile)
     fileHandler.setFormatter(fomatter)
     # consoleHandler = logging.StreamHandler()
-    consoleHandler.setFormatter(fomatter)
+    # consoleHandler.setFormatter(fomatter)
 
     logger.addHandler(fileHandler)
     logger.addHandler(consoleHandler)
