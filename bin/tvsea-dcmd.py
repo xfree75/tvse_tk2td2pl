@@ -318,10 +318,15 @@ def distByTrans(q, d, t):
     cstr = "/home/jin/bin/ktvshowhdenc --no-interact --rm-source --over-write"
     cstr = cstr + " --out-path \"" + q["plexlib_season_root"] + "/\""
     cstr = cstr + " --out-name \"" + t + "\""
+
     if not d["force_video_encoding"]:
         cstr = cstr + " --ff-vcp true "
+    else:
+        cstr = cstr + " --ff-crf 20 --ff-vwscale 720 " # 원격 재생을 위해 강제로 405p로 해상도를 줄인다.
+
     if not d["force_audio_encoding"]:
         cstr = cstr + " --ff-acp true "
+
     cstr = cstr + " \"" + source + "\""
     logger.info("Command: {}".format(cstr))
     ##TODO: 실행 출력을 어딘가 저장 하도록 한다.
