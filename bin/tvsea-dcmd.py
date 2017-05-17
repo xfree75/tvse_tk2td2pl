@@ -322,7 +322,7 @@ def distByTrans(q, d, t):
     if not d["force_video_encoding"]:
         cstr = cstr + " --ff-vcp true "
     else:
-        cstr = cstr + " --ff-crf 20 --ff-vwscale 854 --ff-preset faster " # 원격 재생을 위해 강제로 480p로 해상도를 줄인다.
+        cstr = cstr + " --ff-crf 23 --ff-vwscale 854 --ff-preset faster " # 원격 재생을 위해 강제로 480p로 해상도를 줄인다.
 
     if not d["force_audio_encoding"]:
         cstr = cstr + " --ff-acp true "
