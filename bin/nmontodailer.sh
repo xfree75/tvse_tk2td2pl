@@ -1,6 +1,9 @@
 #!/bin/bash
 #set -x
 
+#이미 실행 되었는지 확인
+ps -ef | grep " nmon -f" | grep -v "grep" | wc -l
+
 _DAY_SEC=86400
 _INTERVAL=60
 
@@ -24,3 +27,4 @@ checkcnt=`expr $extstamp / ${_INTERVAL}`
 
 cmdstr="nmon -f -s ${_INTERVAL} -c ${checkcnt}"
 echo $cmdstr
+
