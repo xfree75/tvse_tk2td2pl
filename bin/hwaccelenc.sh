@@ -5,10 +5,11 @@
 tmpbase=/tmp
 ff_vcp=false
 ff_acp=false
-ff_qp=26
+ff_qp=24
 ff_vwscale=960
 ff_maxvbrate=3145728
 vwscale_set=false
+sw_decode=false
 
 
 ##
@@ -271,6 +272,12 @@ if [ "${ext}" != "mp4" ]; then
     fi
 fi
 
+# 소스 파일의 확장자가 avi 라면 sw_decode 옵션을 활성화 한다.
+if [ "${ext}" == "avi" ]; then
+    sw_decode=true
+fi
+
+
 # 출력 경로 및 이름 인지가 있다면 지정 한다.
 targetpath=${sourcepath}
 targetname=${name}.m4v
@@ -367,8 +374,12 @@ command0="cp \
 	    \"${ffmpeg_tmp}/\""
 
 # 오디오 비디오의 각 인코딩 여부에 따라 옵션을 변경 하여, 복사로 처리 하게 한다.
-#command1_vo="-vcodec libx264 -preset ${ff_preset} -level 3.0 -crf ${ff_crf} -tune ${ff_tune} -r 23.976 -vf scale=${ff_vwscale}:trunc\(ow/a/2\)*2"
-command1_vo="-hwaccel vaapi -hwaccel_device /dev/dri/renderD128 -hwaccel_output_format vaapi -i \"${ffmpeg_tmp}/${filename}\" -vf 'fps=24,scale_vaapi=w=${ff_vwscale}:h=-2:format=nv12' -c:v h264_vaapi -qp ${ff_qp}"
+if [ "${sw_decode}" == true ]; then
+    command1_vo="-vaapi_device /dev/dri/renderD128 -i \"${ffmpeg_tmp}/${filename}\" -vf 'hwupload,scale_vaapi=w=${ff_vwscale}:h=-2:format=nv12' -c:v h264_vaapi -qp ${ff_qp}"
+else
+    #command1_vo="-vcodec libx264 -preset ${ff_preset} -level 3.0 -crf ${ff_crf} -tune ${ff_tune} -r 23.976 -vf scale=${ff_vwscale}:trunc\(ow/a/2\)*2"
+    command1_vo="-hwaccel vaapi -hwaccel_device /dev/dri/renderD128 -hwaccel_output_format vaapi -i \"${ffmpeg_tmp}/${filename}\" -vf 'fps=24,scale_vaapi=w=${ff_vwscale}:h=-2:format=nv12' -c:v h264_vaapi -qp ${ff_qp}"
+fi
 command1_ao="-acodec aac -ab 256k -ar 48000 -ac 2"
 if [ "${ff_vcp}" == true ]; then
     command1_vo="-i \"${ffmpeg_tmp}/${filename}\" -c:v copy"
@@ -415,9 +426,11 @@ fi
 
 if [ "${no_interact}" == false ]; then
 	read -n 1 -p "Continue? [y/n]: "
+	echo -e "\n"
 	if [[ ! ${REPLY} == [yY] ]]; then
-		echo -e "\n"
 		exit 0
+        else
+                echo -e "Start... (Copy source to temp path)\n"
 	fi
 fi
 
