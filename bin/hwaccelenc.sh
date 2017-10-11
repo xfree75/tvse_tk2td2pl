@@ -6,7 +6,7 @@ tmpbase=/tmp
 ff_vcp=false
 ff_acp=false
 ff_qp=24
-ff_vwscale=960
+ff_vwscale=1920
 ff_maxvbrate=3145728
 vwscale_set=false
 sw_decode=false
@@ -382,7 +382,8 @@ else
 fi
 command1_ao="-acodec aac -ab 256k -ar 48000 -ac 2"
 if [ "${ff_vcp}" == true ]; then
-    command1_vo="-i \"${ffmpeg_tmp}/${filename}\" -c:v copy"
+    #command1_vo="-i \"${ffmpeg_tmp}/${filename}\" -c:v copy"
+    command1_vo="-i \"${ffmpeg_tmp}/${filename}\" -vcodec copy"
 fi
 if [ "${ff_acp}" == true ]; then
     command1_ao="-c:a copy"
