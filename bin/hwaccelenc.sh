@@ -365,9 +365,9 @@ if [[ ${svideo_scle} -ne ${ff_vwscale} ]]; then
 fi
 
 ## 소스의 video bitrate가 3,072(kbps)/384(kbyte/sec)를 초과 한다면, ${ff_vcp}을 강제로 false로 설정 한다.
-if [[ ${svideo_vbit} -gt ${ff_maxvbrate} ]]; then
-	ff_vcp=false # Video scale가 변경 되어야 하는 경우는 video를 무조건 인코딩 하도록 한다.
-fi
+#if [[ ${svideo_vbit} -gt ${ff_maxvbrate} ]]; then
+#	ff_vcp=false # Video scale가 변경 되어야 하는 경우는 video를 무조건 인코딩 하도록 한다.
+#fi
 
 command0="cp \
 	    \"${abspath}\" \
