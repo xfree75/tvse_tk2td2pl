@@ -10,6 +10,7 @@ import json
 import time
 import glob
 import codecs
+import re
 import yaml
 import copy
 import http.client
@@ -91,7 +92,11 @@ def startLogging():
     fomatter = logging.Formatter('[%(levelname)s|%(filename)s:%(lineno)s] %(asctime)s > %(message)s')
     fileHandler = logging.FileHandler(logfile)
     fileHandler.setFormatter(fomatter)
+    # consoleHandler = logging.StreamHandler()
+    # consoleHandler.setFormatter(fomatter)
+
     logger.addHandler(fileHandler)
+    # logger.addHandler(consoleHandler)
     logger.setLevel(logging.DEBUG)
     print("Complete initialize logging. logfile: {}".format(logfile))
 
@@ -106,137 +111,136 @@ def loadConfig():
     ctru = config["transmission_remote_username"]
     ctrp = config["transmission_remove_password"]
 
-def wizlisthtml2obj(htmlstring):
+def kimlisthtml2obj_old(htmlstring):
     soup = BeautifulSoup(htmlstring, "lxml")
-    soup_listsubjects = soup('td', {'class':'list-subject',})
+    #soup_listsubjects = soup('td', {'class':'list-subject',})
+    soup_tblhead01 = soup('div', {'class':'tbl_head01'})
+    soup_trlist = soup_tblhead01[0].find_all('tr')
+    #logger.debug("html: {}".format(soup_trlist[0].prettify(formatter="html")))
 
     # 반환할 object array.
     torrcontentlist = []
     # 파싱할때 element 속의 elements 골라 지울 수 있도록.
-    __text_strip_str="{[**wiz**]}"
+    #__text_strip_str="{[**wiz**]}"
 
     listidx = 0
-    for td in soup_listsubjects:
+    for soup_tr in soup_trlist:
         listidx = listidx + 1
-        ahref = td.a
-        detail_url = ahref['href']
-        if 'rel' in ahref.attrs:
-            relval = ahref['rel']
-            if relval[0] == "nofollow": continue
+        #logger.debug("tr html: {}".format(soup_tr.prettify(formatter="html")))
+        soup_tdlist = soup_tr.find_all('td', recursive=False)
+        #soup_tr.find_all("td", attrs={"class": "td_num"}, recursive=False)
+        #logger.debug("td html: {}".format(soup_tdlist))
+        #logger.debug("soup_tdlist length: {}".format(len(soup_tdlist)))
 
-        # 제목 문자열 추출
-        title = ahref.get_text(__text_strip_str, strip=True).split(__text_strip_str)[0]
-        logger.debug("content[{:0>2d}]: {}: {}".format(listidx, detail_url, title))
+        if len(soup_tdlist) != 4:
+            # 헤더는 skip.
+            continue
+
+        soup_td_num     = soup_tdlist[0]
+        soup_td_subject = soup_tdlist[1]
+        soup_td_date    = soup_tdlist[2]
+        soup_td_size    = soup_tdlist[3]
+        # logger.debug("soup_td_num    : {}".format(soup_td_num.string.strip()))
+        # logger.debug("soup_td_subject: {}".format(soup_td_subject.a.string.strip()))
+        # logger.debug("soup_td_subject_href: {}".format(soup_td_subject.a['href']))
 
         # object 생성.
         torrcontent = {}
-        torrcontent['title'] = title
-        torrcontent['url'] = detail_url
-        torrcontent['publisher'] = "wiz"
+        torrcontent['num']       = soup_td_num.string.strip()
+        torrcontent['title']     = soup_td_subject.a.string.strip()
+        torrcontent['url']       = soup_td_subject.a['href']
+        torrcontent['date']      = soup_td_date.string.strip()
+        torrcontent['publisher'] = "kim"
         torrcontentlist.append(torrcontent)
 
     return torrcontentlist
 
-
-##
- # html을 실제 파싱하고 object로 변환 한다.
- ##
-def listhtml2obj(htmlstring):
-    #htmllinearr = htmlstring.splitlines(True)
-    #linelen = len(htmllinearr)
-    #logger.debug("html line length: {}".format(linelen))
-    #for line in htmllinearr:
+def kimlisthtml2obj(htmlstring):
     soup = BeautifulSoup(htmlstring, "lxml")
-    soup_listsubjects = soup('a', {'class':'list_subject',})
-    logger.debug("list_subject element: {}".format(str(soup_listsubjects)))
-    listidx = 0
+    soup_board_list = soup('table', {'class':'board_list'})
+    #logger.debug("html: {}".format(soup_board_list[0].prettify(formatter="html")))
+    soup_trlist = soup_board_list[0].find_all('tr')
+    #logger.debug("html: {}".format(soup_trlist[1].prettify(formatter="html")))
+
+    # 반환할 object array.
     torrcontentlist = []
-    for ahref in soup_listsubjects:
+    # 파싱할때 element 속의 elements 골라 지울 수 있도록.
+    #__text_strip_str="{[**wiz**]}"
+
+    listidx = 0
+    for soup_tr in soup_trlist:
         listidx = listidx + 1
-        hrefval = ahref['href']
-        # skip: rel="nofollow"
-        #logger.debug("tag.attrs: {}".format(ahref.attrs))
-        if 'rel' in ahref.attrs:
-            relval = ahref['rel']
-            #logger.debug("relval: {}".format(relval))
-            if relval[0] == "nofollow": continue
-        logger.debug("content url path[{:0>2d}]: {}: {}".format(listidx, hrefval, ahref.string))
+        #logger.debug("tr html: {}".format(soup_tr.prettify(formatter="html")))
+        soup_tdlist = soup_tr.find_all('td', recursive=False)
+        ##soup_tr.find_all("td", attrs={"class": "td_num"}, recursive=False)
+        #logger.debug("td html: {}".format(soup_tdlist))
+        #logger.debug("soup_tdlist length: {}".format(len(soup_tdlist)))
+
+        if len(soup_tdlist) != 5:
+            # 헤더는 skip.
+            continue
+
+        soup_td_num     = soup_tdlist[0]
+        soup_td_pollcnt = soup_tdlist[1]
+        soup_td_subject = soup_tdlist[2]
+        soup_td_date    = soup_tdlist[3]
+        soup_td_size    = soup_tdlist[4]
+        #logger.debug("soup_td_num    : {}".format(soup_td_num.string.strip()))
+        #logger.debug("soup_td_pollcnt    : {}".format(soup_td_pollcnt.string.strip()))
+        #logger.debug("soup_td_subject: {}".format(soup_td_subject.a.string.strip()))
+        #logger.debug("soup_td_subject_href: {}".format(soup_td_subject.a['href']))
+        #logger.debug("soup_td_date    : {}".format(soup_td_date.string.strip()))
+        #logger.debug("soup_td_size    : {}".format(soup_td_size.string.strip()))
+
+        # object 생성.
         torrcontent = {}
-        torrcontent['title'] = ahref.string
-        torrcontent['url'] = "https://m.torrentkim10.net/" + hrefval
+        torrcontent['num']       = soup_td_num.string.strip()
+        torrcontent['title']     = soup_td_subject.a.string.strip()
+        relUrl                   = soup_td_subject.a['href']
+        torrcontent['url']       = re.sub('^../', 'https://torrentkim10.net/', relUrl)
+        torrcontent['date']      = soup_td_date.string.strip()
+        #torrcontent['size']      = soup_td_size.string.strip()
+        torrcontent['publisher'] = "kim"
         torrcontentlist.append(torrcontent)
+
     return torrcontentlist
 
-def getWizKtvList(tvGenreName):
+def getKimKtvList(tvGenreName):
     # wiz에서는 browser agnet 헤더를 확인 하므로... 차후에는 환경 설정으로 바꾸도록 하자.
     agent_string = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36"
     s = requests.Session()
     s.headers.update({'User-Agent': agent_string})
 
     # genreName으로 baseUrl을 담자.
-    wizBaseUrl = "https://torrentwiz4.com/" + tvGenreName
+    kimBaseUrl = "https://torrentkim10.net/" + tvGenreName
     # page를 path로 지정 하므로, 2page부터 사용할 pagePath를 담을 문자열.
-    wizPagePath = ""
+    kimPagePath = ""
     # 목록을 파싱하여 생성한 object 목록들을 추가할 array.
-    wizContentlist = []
+    kimContentlist = []
     pageCountForFeed = 2
     for pagenum in range(1, pageCountForFeed + 1):
 
         if pagenum == 1:
-            ransleep = random.random()*80
-            logger.info("sleep: {}".format(ransleep))
-            time.sleep(ransleep)
-            # 1페이지는 pageurl을 줘도 되고 안줘도 되니까, 그냥 안주도록 해본다.
-            wizPagePath = ""
-        else:
-            wizPagePath = "/p" + str(pagenum)
-
+            ransleep = (random.random()*80) + 5
+            #logger.info("sleep: {}".format(ransleep))
+            #time.sleep(ransleep)
+        
+        kimPagePath = "/torrent" + str(pagenum) + ".htm"
+        
         # 생성된 주소로 연결 한다.
-        r = s.get(wizBaseUrl + wizPagePath)
-        logger.info("Download status: {} / {}".format(r.status_code, wizBaseUrl + wizPagePath))
+        r = s.get(kimBaseUrl + kimPagePath)
+        logger.info("Download status: {} / {}".format(r.status_code, kimBaseUrl + kimPagePath))
         if r.status_code == 200:
             data = r.content
-            wizContentlist = wizContentlist + wizlisthtml2obj(data)
+            #logger.info("Data : {}".format(data))
+            kimContentlist = kimContentlist + kimlisthtml2obj(data.decode())
             # 바깥 for loop 를 설정에 의해 제어하도록 하면서, 이곳의 값도 그 값을 가지고 처리 하도록 변경 해야 한다.
             if pagenum == pageCountForFeed: break
-            ransleep = random.random()*8
+            ransleep = (random.random()*8) + 2
             logger.info("sleep: {}".format(ransleep))
             time.sleep(ransleep)
-    return wizContentlist
+    return kimContentlist
 
-
-##
- # 목록 html들을 받아오고 parsing 한 후 object로 반환 하게 한다.
- # TODO: host, path, list-pagenum 을 환경 설정으로 처리 한다.
- ##
-def getKtvList(bo_table_value):
-    torrcontentlist = []
-    conn = http.client.HTTPSConnection("m.torrentkim10.net")
-    #TODO: range는 설정하고, 계산하여 처리 하도록 해야함.
-    pageCountForFeed = 2
-    for pagenum in range(1, pageCountForFeed + 1):
-
-        if pagenum == 1:
-            ransleep = random.random()*100
-            logger.info("sleep: {}".format(ransleep))
-            time.sleep(ransleep)
-
-        urlpath = "/bc.php?bo_table="+bo_table_value+"&page=" + str(pagenum)
-        logger.debug("content list path: {}".format(urlpath))
-        conn.request("GET", urlpath)
-        r1 = conn.getresponse()
-        logger.info("Status: {}, Reason: {}".format(r1.status, r1.reason))
-        if r1.status == 200:
-            data1 = r1.read()
-            torrcontentlist = torrcontentlist +listhtml2obj(data1)
-            # 바깥 for loop 를 설정에 의해 제어하도록 하면서, 이곳의 값도 그 값을 가지고 처리 하도록 변경 해야 한다.
-            if pagenum == pageCountForFeed: break
-            ransleep = random.random()*10
-            logger.info("sleep: {}".format(ransleep))
-            time.sleep(ransleep)
-
-    conn.close()
-    return torrcontentlist
 
 def saveJsonArticle(listobj, type):
     formatedJsonStr = json.dumps(listobj, indent=4, sort_keys=False, ensure_ascii=False)
@@ -252,7 +256,7 @@ def checkRecentUpdate():
     last_modified_date = 0
     mtime = 0
     for file in os.listdir(os.path.join(rspath, CONST.feedlib_path_name)):
-        if file.endswith(".json"):
+        if file.endswith(".json") and file.startswith("kim_"):
             libfile = os.path.join(rspath, CONST.feedlib_path_name, file)
             try:
                 mtime = os.path.getmtime(libfile)
@@ -267,29 +271,14 @@ def checkRecentUpdate():
                 return False
     return True
 
-def updatefeed():
+
+def updatekimfeed():
     if not checkRecentUpdate():
         return
 
-    bo_table_drama = "torrent_tv"
-    bo_table_kids = "torrent_child"
-    bo_table_entertainment = "torrent_variety"
-    bo_table_documentary= "torrent_docu"
-    bo_table_mid= "torrent_mid"
-
-    saveJsonArticle(getKtvList(bo_table_drama)        , CONST.dramafeedlib_name)
-    saveJsonArticle(getKtvList(bo_table_kids)         , CONST.kidsfeedlib_name)
-    saveJsonArticle(getKtvList(bo_table_entertainment), CONST.entertainmentfeedlib_name)
-    saveJsonArticle(getKtvList(bo_table_documentary)  , CONST.documentaryfeedlib_name)
-    saveJsonArticle(getKtvList(bo_table_mid)          , CONST.midfeedlib_name)
-
-def updatewizfeed():
-    if not checkRecentUpdate():
-        return
-
-    saveJsonArticle(getWizKtvList("torrent_drama"), "wiz_" + CONST.dramafeedlib_name)
-    saveJsonArticle(getWizKtvList("torrent_ent"),   "wiz_" + CONST.entertainmentfeedlib_name)
-    saveJsonArticle(getWizKtvList("torrent_sisa"),  "wiz_" + CONST.documentaryfeedlib_name)
+    saveJsonArticle(getKimKtvList("torrent_tv"), "kim_" + CONST.dramafeedlib_name)
+    saveJsonArticle(getKimKtvList("torrent_variety"),   "kim_" + CONST.entertainmentfeedlib_name)
+    saveJsonArticle(getKimKtvList("torrent_docu"),  "kim_" + CONST.documentaryfeedlib_name)
 
 
 def getLastEpsoideNumberAtPlex(season_root, seriesname, seasonnumber):
@@ -556,35 +545,43 @@ def updateQueue(tpe, title_keywords):
     qf.write(queueStr)
     qf.close()
 
-# wiz에서 받아 torrentmission-daemon에 추가 한다.
-def downloadFromWizMagnet(tpe, title_keywords):
+# kim에서 받아 torrentmission-daemon에 추가 한다.
+def downloadFromKimMagnet(tpe, title_keywords):
     #logger.debug("(downloadToIncomming)tep:{}".format(tpe))
     ed = tpe["ed"]
     pr = urlparse(tpe["url"])
     logger.info("epsode detail page: {}".format(tpe["url"]))
-    #logger.debug("parser result:{}".format(pr))
+    logger.debug("parser result:{}".format(pr))
 
     conn = http.client.HTTPSConnection(pr.netloc)
-    conn.request("GET", pr.path + "?" + pr.query)
+    conn.request("GET", pr.path)
     r1 = conn.getresponse()
     logger.debug("Status: {}, Reason: {}".format(r1.status, r1.reason))
     if r1.status == 200:
         data2 = r1.read()
-        #logger.debug("content html: {}".format(data2))
+        logger.debug("content html: {}".format(data2))
         soup = BeautifulSoup(data2, "lxml")
-        soup_btn_as = soup('a', {'class':'btn btn-color btn-xs view_file_download',})
-        for soup_btn_a in soup_btn_as:
-            #logger.debug("a magnet: {}".format(soup_btn_a))
-            magnet_string = soup_btn_a['href']
-            if magnet_string.startswith('magnet:?'):
-                # transmission-remote에 magnet string을 추가.
-                logger.info("Start adding magnet: {}({}) s{} e{} : {}".format(ed["series_name"], ed["release_year"], ed["season_number"], tpe["epid"], tpe["title"]))
-                cmdstr = "transmission-remote --auth=" + ctru + ":" + ctrp + " -a \"" + magnet_string + "\""
-                result = subprocess.check_output(cmdstr, shell=True)
-                logger.info("Complete adding magnet. result: {}".format(result))
+        soup_bo_v_img_list = soup.find_all("input", attrs={"type": "text"})
+        logger.debug("input text: {}".format(soup_bo_v_img_list))
 
-        ## queue 정보를 갱신 한다. 시리즈 이름. 다운로드 추가 된 에피소드 정보.
-        updateQueue(tpe, title_keywords)
+        for soup_bo_v_img in soup_bo_v_img_list:
+
+            try:
+                magnet_string = soup_bo_v_img['value']
+                logger.debug("input value: {} / {}".format(soup_bo_v_img, magnet_string))
+                if magnet_string.startswith('magnet:?'):
+                    logger.info("Start adding magnet: {}({}) s{} e{} : {}".format(ed["series_name"], ed["release_year"], ed["season_number"], tpe["epid"], tpe["title"]))
+
+                    cmdstr = "transmission-remote --auth=" + ctru + ":" + ctrp + " -a \"" + magnet_string + "\""
+                    result = subprocess.check_output(cmdstr, shell=True)
+                    logger.info("Complete adding magnet. result: {}".format(result))
+
+                    ## queue 정보를 갱신 한다. 시리즈 이름. 다운로드 추가 된 에피소드 정보.
+                    updateQueue(tpe, title_keywords)
+
+            except KeyError as kerr:
+                logger.debug("KeyError cause by none value. html: {}".format(soup_bo_v_img))
+                continue
 
     conn.close()
 
@@ -701,7 +698,8 @@ def discoveryAndDownload(ed, leid, feedlibs):
         logger.debug("Top priority epsode: {}".format(json.dumps(te, indent=4, sort_keys=False, ensure_ascii=False)))
         if te:
             #downloadToIncomming(te, title_keywords)
-            downloadFromWizMagnet(te, title_keywords)
+            #downloadFromWizMagnet(te, title_keywords)
+            downloadFromKimMagnet(te, title_keywords)
 
     logger.debug("===============================================================================")
 
@@ -726,10 +724,10 @@ def discoveryEpsoidesFromAllFeed(dy, feedlibs):
     discoveryAndDownload(ed, leid, feedlibs)
 
 
-def findNewEpsoides():
+def findNewKimEpsoides():
     # feedlib/*.json 파일들을 읽어 들인다.
     feedlibs = []
-    for feedfile in glob.glob(os.path.join(rspath, CONST.feedlib_path_name) + '/*.json'):
+    for feedfile in glob.glob(os.path.join(rspath, CONST.feedlib_path_name) + '/kim_*.json'):
         ff = open(feedfile, 'r')
         feedlibs = feedlibs + json.loads(ff.read())
         ff.close()
@@ -747,9 +745,8 @@ def main():
         checkrspath()
         startLogging()
         loadConfig()
-        updatewizfeed()
-        #updatefeed()
-        findNewEpsoides()
+        updatekimfeed()
+        findNewKimEpsoides()
     except OSError as oerr:
         logger.error("OS error: {0}".format(oerr))
         print("OS error: {0}".format(oerr))
@@ -762,6 +759,15 @@ def main():
     except KeyError as kerr:
         logger.error("KeyError error: {0}".format(kerr))
         print("KeyError error: {0}".format(kerr))
+    except TypeError as terr:
+        logger.error("TypeError error: {0}".format(terr))
+        print("TypeError error: {0}".format(terr))
+    except IndexError as ierr:
+        logger.error("IndexError error: {0}".format(ierr))
+        print("IndexError error: {0}".format(ierr))
+    except AttributeError as aerr:
+        logger.error("AttributeError error: {0}".format(aerr))
+        print("AttributeError error: {0}".format(aerr))
     except:
         logger.error("Unexpected error: {}".format(sys.exc_info()[0]))
 
