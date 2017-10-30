@@ -9,8 +9,10 @@ ff_tune=film
 ff_preset=medium
 ff_crf=20
 ff_threads=0
-ff_vwscale=1280
-ff_maxvbrate=3145728
+#ff_vwscale=1280
+#ff_maxvbrate=3145728
+ff_vwscale=1920
+ff_maxvbrate=31457280
 vwscale_set=false
 
 
