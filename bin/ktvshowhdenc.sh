@@ -372,7 +372,8 @@ command0="cp \
 	    \"${ffmpeg_tmp}/\""
 
 # 오디오 비디오의 각 인코딩 여부에 따라 옵션을 변경 하여, 복사로 처리 하게 한다.
-command1_vo="-vcodec libx264 -preset ${ff_preset} -level 3.0 -crf ${ff_crf} -tune ${ff_tune} -r 23.976 -vf scale=${ff_vwscale}:trunc\(ow/a/2\)*2"
+#command1_vo="-vcodec libx264 -preset ${ff_preset} -level 3.0 -crf ${ff_crf} -tune ${ff_tune} -r 23.976 -vf scale=${ff_vwscale}:trunc\(ow/a/2\)*2"
+command1_vo="-vcodec libx264 -preset ${ff_preset} -level 3.0 -crf ${ff_crf} -tune ${ff_tune} -vf scale=${ff_vwscale}:trunc\(ow/a/2\)*2"
 command1_ao="-acodec aac -ab 256k -ar 48000 -ac 2"
 if [ "${ff_vcp}" == true ]; then
     command1_vo="-c:v copy"
