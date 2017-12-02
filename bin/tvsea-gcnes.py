@@ -191,7 +191,8 @@ def getGirlsKtvList(tvGenreName):
     s.headers.update({'User-Agent': agent_string})
 
     # genreName으로 baseUrl을 담자.
-    girlsBaseUrl = "https://torrentgirls.com/b/" + tvGenreName
+    #girlsBaseUrl = "https://torrentgirls.com/b/" + tvGenreName
+    girlsBaseUrl = "https://torrent.ceo/b/" + tvGenreName
     # page를 path로 지정 하므로, 2page부터 사용할 pagePath를 담을 문자열.
     girlsPagePath = ""
     # 목록을 파싱하여 생성한 object 목록들을 추가할 array.
