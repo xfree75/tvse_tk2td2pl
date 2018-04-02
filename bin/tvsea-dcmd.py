@@ -77,7 +77,7 @@ def startLogging():
     fileHandler = logging.FileHandler(logfile)
     fileHandler.setFormatter(fomatter)
     logger.addHandler(fileHandler)
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging.DEBUG)
     print("Complete initialize logging. logfile: {}".format(logfile))
     logger.info("Start script.")
 
@@ -111,11 +111,11 @@ def unLock():
 
 def matchDownloadFile(f, key_words, epid, epsode_id_type, resolution, release_group):
     fu = f.upper()
-    #logger.debug("Try matching: {}. words: {}, epid: {}, resolution: {}, release group: {}".format(f, key_words, epid, resolution, release_group))
+    logger.debug("Try matching: {}. words: {}, epid: {}, resolution: {}, release group: {}".format(f, key_words, epid, resolution, release_group))
 
     for kw in key_words:
         if fu.find(str(kw).upper()) < 0:
-            #logger.debug("Fail keyword matching: {} {}".format(str(kw).upper(), fu.find(str(kw).upper())))
+            logger.debug("Fail keyword matching: {} {}".format(str(kw).upper(), fu.find(str(kw).upper())))
             return False
 
     if epsode_id_type == "date":
