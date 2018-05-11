@@ -197,7 +197,7 @@ def kimlisthtml2obj(htmlstring):
         torrcontent['num']       = soup_td_num.string.strip()
         torrcontent['title']     = soup_td_subject.a.string.strip()
         relUrl                   = soup_td_subject.a['href']
-        torrcontent['url']       = re.sub('^../', 'https://torrentkim.pro/', relUrl)
+        torrcontent['url']       = re.sub('^../', 'https://torrentkim.org/', relUrl)
         torrcontent['date']      = soup_td_date.string.strip()
         #torrcontent['size']      = soup_td_size.string.strip()
         torrcontent['publisher'] = "kim"
@@ -212,7 +212,7 @@ def getKimKtvList(tvGenreName):
     s.headers.update({'User-Agent': agent_string})
 
     # genreName으로 baseUrl을 담자.
-    kimBaseUrl = "https://torrentkim.pro/" + tvGenreName
+    kimBaseUrl = "https://torrentkim.org/" + tvGenreName
     # page를 path로 지정 하므로, 2page부터 사용할 pagePath를 담을 문자열.
     kimPagePath = ""
     # 목록을 파싱하여 생성한 object 목록들을 추가할 array.
