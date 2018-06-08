@@ -112,11 +112,13 @@ def loadConfig():
     ctrp = config["transmission_remove_password"]
 
 def kimlisthtml2obj_old(htmlstring):
+    logger.debug("called--------------------------------------------------------");
     soup = BeautifulSoup(htmlstring, "lxml")
     #soup_listsubjects = soup('td', {'class':'list-subject',})
-    soup_tblhead01 = soup('div', {'class':'tbl_head01'})
+    soup_tblhead01 = soup('table', {'class':'board_list'})
+    logger.debug("html: {}".format(soup_tbllist[0].prettify(formatter="html")))
     soup_trlist = soup_tblhead01[0].find_all('tr')
-    #logger.debug("html: {}".format(soup_trlist[0].prettify(formatter="html")))
+    logger.debug("html: {}".format(soup_trlist[0].prettify(formatter="html")))
 
     # 반환할 object array.
     torrcontentlist = []
@@ -173,31 +175,38 @@ def kimlisthtml2obj(htmlstring):
         #logger.debug("tr html: {}".format(soup_tr.prettify(formatter="html")))
         soup_tdlist = soup_tr.find_all('td', recursive=False)
         ##soup_tr.find_all("td", attrs={"class": "td_num"}, recursive=False)
-        #logger.debug("td html: {}".format(soup_tdlist))
+        logger.debug("td html: {}".format(soup_tdlist))
         #logger.debug("soup_tdlist length: {}".format(len(soup_tdlist)))
 
-        if len(soup_tdlist) != 5:
+        if len(soup_tdlist) != 4:
             # 헤더는 skip.
             continue
 
+        logger.debug("test exist td style: {}".format(soup_tr.has_attr("style")))
+        if soup_tr.has_attr("style"):
+            # display:none skip.
+            #logger.debug("td style: {}".format(soup_tr["style"]))
+            if soup_tr["style"] == "display:none":
+                continue
+
         soup_td_num     = soup_tdlist[0]
-        soup_td_pollcnt = soup_tdlist[1]
-        soup_td_subject = soup_tdlist[2]
-        soup_td_date    = soup_tdlist[3]
-        soup_td_size    = soup_tdlist[4]
-        #logger.debug("soup_td_num    : {}".format(soup_td_num.string.strip()))
+        #soup_td_pollcnt = soup_tdlist[1]
+        soup_td_subject = soup_tdlist[1]
+        soup_td_date    = soup_tdlist[2]
+        soup_td_size    = soup_tdlist[3]
+        logger.debug("soup_td_num    : {}".format(soup_td_num.string.strip()))
         #logger.debug("soup_td_pollcnt    : {}".format(soup_td_pollcnt.string.strip()))
-        #logger.debug("soup_td_subject: {}".format(soup_td_subject.a.string.strip()))
-        #logger.debug("soup_td_subject_href: {}".format(soup_td_subject.a['href']))
-        #logger.debug("soup_td_date    : {}".format(soup_td_date.string.strip()))
-        #logger.debug("soup_td_size    : {}".format(soup_td_size.string.strip()))
+        logger.debug("soup_td_subject: {}".format(soup_td_subject.a.string.strip()))
+        logger.debug("soup_td_subject_href: {}".format(soup_td_subject.a['href']))
+        logger.debug("soup_td_date    : {}".format(soup_td_date.string.strip()))
+        logger.debug("soup_td_size    : {}".format(soup_td_size.string))
 
         # object 생성.
         torrcontent = {}
         torrcontent['num']       = soup_td_num.string.strip()
         torrcontent['title']     = soup_td_subject.a.string.strip()
         relUrl                   = soup_td_subject.a['href']
-        torrcontent['url']       = re.sub('^../', 'https://torrentkim.org/', relUrl)
+        torrcontent['url']       = re.sub('^../', 'https://torrentme.net/', relUrl)
         torrcontent['date']      = soup_td_date.string.strip()
         #torrcontent['size']      = soup_td_size.string.strip()
         torrcontent['publisher'] = "kim"
@@ -212,7 +221,7 @@ def getKimKtvList(tvGenreName):
     s.headers.update({'User-Agent': agent_string})
 
     # genreName으로 baseUrl을 담자.
-    kimBaseUrl = "https://torrentkim.org/" + tvGenreName
+    kimBaseUrl = "https://torrentme.net/" + tvGenreName
     # page를 path로 지정 하므로, 2page부터 사용할 pagePath를 담을 문자열.
     kimPagePath = ""
     # 목록을 파싱하여 생성한 object 목록들을 추가할 array.
