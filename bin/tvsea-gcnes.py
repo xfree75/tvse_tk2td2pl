@@ -384,18 +384,32 @@ def checkNewEpByDate(leid, title):
 def checkNewEpByNumber(leid, title):
     s4 = titleSplit(title)
     for w in s4:
+        logger.debug("splited string: {}".format(w))
+        wei = -1
+        try:
+            wei = w.index('E')
+        except ValueError as e:
+            logger.debug("ValueError word[{}]: {}".format(w, e))
+            continue
+        except IndexError as e:
+            logger.debug("IndexError word[{}]: {}".format(w, e))
+            continue
+        logger.debug("E charter index: {}".format(wei))
+        w = w[wei:]
+
         if w.startswith("E"):
             epnum = w.split("E")[-1]
             try:
                 val = int(epnum)
+                logger.info("current feed's episode number: e[{}]".format(val))
                 if int(leid) < val:
                     logger.debug("return new episode number: e[{}]".format(val))
                     return val
             except TypeError as e:
-                logger.warn("TypeError word[{}, {}]: {}".format(w, epnum, e))
+                logger.debug("TypeError word[{}, {}]: {}".format(w, epnum, e))
                 continue
             except ValueError as e:
-                logger.warn("ValueError word[{}, {}]: {}".format(w, epnum, e))
+                logger.debug("ValueError word[{}, {}]: {}".format(w, epnum, e))
                 continue
 
             logger.debug("E start word: {}".format(w))
@@ -688,6 +702,7 @@ def discoveryAndDownload(ed, leid, feedlibs):
 
 def discoveryEpsoidesFromAllFeed(dy, feedlibs):
     ed = yaml.load(codecs.open(dy, "r", "utf-8"))
+    logger.info("------------------------------------------------------------")
     logger.info("Current series is \"{} ({})\".".format(ed["series_name"], ed["release_year"]))
 
     plexlib_path = ed["plexlib_season_root"]
