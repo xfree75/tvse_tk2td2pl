@@ -153,6 +153,10 @@ def matchDownloadFile(f, key_words, epid, epsode_id_type, resolution, release_gr
     return True
 
 def checkWriteComplete(f):
+    # 파일이 아닌 디렉토리라면, 무시.
+    if os.path.isdir(f):
+        return False
+    
     # 현재 그 파일의 크기를 확인.
     statinfo = os.stat(f)
     curr_size = statinfo.st_size
