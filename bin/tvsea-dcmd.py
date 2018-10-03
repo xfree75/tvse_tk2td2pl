@@ -6,6 +6,7 @@ import sys
 import logging
 import json
 import glob
+import shutil
 from datetime import datetime
 
 
@@ -152,9 +153,41 @@ def matchDownloadFile(f, key_words, epid, epsode_id_type, resolution, release_gr
     #logger.debug("found match: {}. words: {}, epid: {}, resolution: {}, release group: {}".format(f, key_words, epid, resolution, release_group))
     return True
 
+def checkFolderComplete(f):
+    # 디렉토리 아래에 미디어 파일이 존재 하는 경우 파일 크기를 검사 한 후 파일을 이동 시킨다.
+    # 1. 디렉토리 아래에서 미디어 파일 검색.
+    # 2. 디렉토리 아래에서 미디어 파일 크기 비교. 없다면 .size 생성.
+    # 3. 파일크기가 같다면, 파일을 이동.
+    # 4. 디렉토리 제거.
+
+    ##TODO: 환경설정 값으로 바꾸어야 한다.
+    tm_d_path = "/storage/local/mforce2-local/transmission-daemon/downloads"
+
+    folderFiles = glob.glob(os.path.join(f, "*"))
+    for mef in folderFiles:
+        logger.debug("All Folder's media file: {}".format(mef))
+        if mef.endswith(".mp4") or mef.endswith(".avi") or mef.endswith(".mkv"):
+            logger.debug("Checked Foler's media file: {}".format(mef))
+
+            # 그럴 가능성은 적지만, 다시 디렉토리가 나온다면 무시.
+            if os.path.isdir(mef):
+                logger.warn("Not support recursive path. Current: {}".format(mef))
+                continue
+
+            # 미디어 파일이라면.. 본의 아니게 재귀호출.
+            if checkWriteComplete(mef):
+                # 파일 크기 체크 까지 되었다면, 파일을 이동 한다.
+                shutil.move(mef, tm_d_path)
+                logger.info("Complete move file in directory. file: {}".format(mef))
+                
+                # 디렉토리 제거.
+                shutil.rmtree(f)
+                logger.info("Complete remove directory. directory: {}".format(f))
+
 def checkWriteComplete(f):
     # 파일이 아닌 디렉토리라면, 무시.
     if os.path.isdir(f):
+        checkFolderComplete(f)
         return False
     
     # 현재 그 파일의 크기를 확인.
