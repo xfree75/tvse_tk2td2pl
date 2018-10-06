@@ -164,6 +164,7 @@ def checkFolderComplete(f):
     tm_d_path = "/storage/local/mforce2-local/transmission-daemon/downloads"
 
     folderFiles = glob.glob(os.path.join(f, "*"))
+    logger.debug("folderFiles: {}".format(folderFiles))
     for mef in folderFiles:
         logger.debug("All Folder's media file: {}".format(mef))
         if mef.endswith(".mp4") or mef.endswith(".avi") or mef.endswith(".mkv"):
@@ -187,6 +188,7 @@ def checkFolderComplete(f):
 def checkWriteComplete(f):
     # 파일이 아닌 디렉토리라면, 무시.
     if os.path.isdir(f):
+        logger.debug("Download with direcoty. directory: {}".format(f))
         checkFolderComplete(f)
         return False
     
