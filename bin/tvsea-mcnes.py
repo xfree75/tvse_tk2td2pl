@@ -195,7 +195,7 @@ def getMapKtvList(tvGenreName):
             logger.info("sleep: {}".format(ransleep))
             time.sleep(ransleep)
         else:
-            hajaPagePath = "?&page=" + str(pagenum)
+            pagePath = "?&page=" + str(pagenum)
         
         # 생성된 주소로 연결 한다.
         r = s.get(baseUrl + pagePath)
