@@ -163,7 +163,8 @@ def checkFolderComplete(f):
     ##TODO: 환경설정 값으로 바꾸어야 한다.
     tm_d_path = "/storage/local/mforce2-local/transmission-daemon/downloads"
 
-    folderFiles = glob.glob(os.path.join(f, "*"))
+    f2 = f.replace('[','[[]').replace(']','[]]')
+    folderFiles = glob.glob(os.path.join(f2, "*"))
     logger.debug("folderFiles: {}".format(folderFiles))
     for mef in folderFiles:
         logger.debug("All Folder's media file: {}".format(mef))
