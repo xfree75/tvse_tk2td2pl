@@ -163,9 +163,10 @@ def checkFolderComplete(f):
     ##TODO: 환경설정 값으로 바꾸어야 한다.
     tm_d_path = "/storage/local/mforce2-local/transmission-daemon/downloads"
 
-    f2 = f.replace('[','[[]').replace(']','[]]')
+    #f2 = f.replace('[','[[]').replace(']','[]]')
+    f2 = f.translate({ord('['):'[[]', ord(']'):'[]]'})
     folderFiles = glob.glob(os.path.join(f2, "*"))
-    logger.debug("folderFiles: {}".format(folderFiles))
+    logger.debug("folderFiles({}): {}".format(f2, folderFiles))
     for mef in folderFiles:
         logger.debug("All Folder's media file: {}".format(mef))
         if mef.endswith(".mp4") or mef.endswith(".avi") or mef.endswith(".mkv"):
@@ -210,6 +211,7 @@ def checkWriteComplete(f):
 
     f = open(sizef, 'w')
     f.write(str(curr_size))
+    logger.info("Write size file. size: {}, file: {}".format(curr_size, f))
     f.close()
 
     return False
