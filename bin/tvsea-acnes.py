@@ -764,7 +764,7 @@ def main():
         startLogging()
         loadConfig()
         updatemapfeed()
-        #findNewEpsoides()
+        findNewEpsoides()
     except OSError as oerr:
         logger.error("OS error: {0}".format(oerr))
         print("OS error: {0}".format(oerr))
