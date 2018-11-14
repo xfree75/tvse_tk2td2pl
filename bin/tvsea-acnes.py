@@ -153,14 +153,23 @@ def listhtml2obj(htmlstring):
         #logger.debug("num  : {}".format(soup_td1.string.strip()))
         #logger.debug("title: {}".format(title))
         #logger.debug("url  : {}".format(soup_td2.div.a['href']))
-
+        #logger.debug("a _vvvvvv_1: {}".format(_vv_ahref.get_text(__text_strip_str, strip=True)))
+        #logger.debug("a _vvvvvv_2: {}".format(_vv_ahref.get_text(__text_strip_str, strip=True).split(__text_strip_str)))
+        #logger.debug("a _vvvvvv_3: {}".format(_vv_ahref.get_text(__text_strip_str, strip=True).split(__text_strip_str)[0]))
+        
         '''게시물 번호'''
         _v_number = soup_li('div', {'class':'wr-num hidden-xs'})[0].string.strip()
         
         '''제목 & URL'''
         _vv_ahref    = soup_li('div', {'class':'wr-subject'})[0].find_all('a', recursive=False)[0]
-        _v_title     = _vv_ahref.get_text(__text_strip_str, strip=True).split(__text_strip_str)[0]
         _v_detailurl = _vv_ahref['href']
+        _vv_title    = _vv_ahref.get_text(__text_strip_str, strip=True).split(__text_strip_str)
+        if len(_vv_title) == 1:
+            _v_title     = _vv_ahref.get_text(__text_strip_str, strip=True).split(__text_strip_str)[0]
+        elif len(_vv_title) ==3:
+            _v_title     = _vv_ahref.get_text(__text_strip_str, strip=True).split(__text_strip_str)[1]
+        else:
+            _v_title = "Not found the title."
         
         '''파일크기'''
         _v_filesize = soup_li('div', {'class':'wr-hit hidden-xs'})[0].string.strip()
@@ -755,7 +764,7 @@ def main():
         startLogging()
         loadConfig()
         updatemapfeed()
-        findNewEpsoides()
+        #findNewEpsoides()
     except OSError as oerr:
         logger.error("OS error: {0}".format(oerr))
         print("OS error: {0}".format(oerr))
