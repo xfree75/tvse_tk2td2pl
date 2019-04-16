@@ -146,7 +146,9 @@ def hajalisthtml2obj(htmlstring):
         #logger.debug("soup_td3: {}".format(soup_td3))
         #logger.debug("soup_td4: {}".format(soup_td4))
 
-        ahref = soup_td2.div.find_all('a', recursive=False)[0]
+        max_href_idx = len(soup_td2.div.find_all('a', recursive=False)) - 1
+        
+        ahref = soup_td2.div.find_all('a', recursive=False)[max_href_idx]
         title = ahref.get_text(__text_strip_str, strip=True).split(__text_strip_str)[0]
         
         #logger.debug("num  : {}".format(soup_td1.string.strip()))
@@ -157,7 +159,8 @@ def hajalisthtml2obj(htmlstring):
         torrcontent = {}
         torrcontent['num']       = soup_td1.string.strip()
         torrcontent['title']     = title
-        torrcontent['url']       = soup_td2.div.a['href']
+        #torrcontent['url']       = soup_td2.div.a['href']
+        torrcontent['url']       = ahref['href']
         torrcontent['date']      = soup_td3.string.strip()
         torrcontent['size']      = soup_td4.string.strip()
         torrcontent['publisher'] = "haja"
