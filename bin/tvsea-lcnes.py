@@ -231,7 +231,7 @@ def getKimKtvList(tvGenreName):
         if pagenum == 1:
             ransleep = (random.random()*80) + 5
             logger.info("sleep: {}".format(ransleep))
-            ##### time.sleep(ransleep)
+            time.sleep(ransleep)
         
         kimPagePath = "/torrent" + str(pagenum) + ".htm"
         
@@ -246,7 +246,7 @@ def getKimKtvList(tvGenreName):
             if pagenum == pageCountForFeed: break
             ransleep = (random.random()*8) + 2
             logger.info("sleep: {}".format(ransleep))
-            ##### time.sleep(ransleep)
+            time.sleep(ransleep)
     return kimContentlist
 
 
