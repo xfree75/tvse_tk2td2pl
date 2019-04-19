@@ -193,23 +193,29 @@ def kimlisthtml2obj(htmlstring):
         soup_td_subject = soup_tdlist[0]
         soup_td_date    = soup_tdlist[1]
         soup_td_size    = soup_tdlist[2]
-        logger.debug("soup_td_num    : {}".format(""))
-        #logger.debug("soup_td_pollcnt    : {}".format(soup_td_pollcnt.string.strip()))
-        logger.debug("soup_td_subject: {}".format(soup_td_subject.a.string.strip()))
-        logger.debug("soup_td_subject_href: {}".format(soup_td_subject.a['href']))
-        logger.debug("soup_td_date    : {}".format(soup_td_date.string.strip()))
-        logger.debug("soup_td_size    : {}".format(soup_td_size.string))
+        
+        try:
+            logger.debug("soup_td_num    : {}".format(""))
+            #logger.debug("soup_td_pollcnt    : {}".format(soup_td_pollcnt.string.strip()))
+            logger.debug("soup_td_subject: {}".format(soup_td_subject.a.string.strip()))
+            logger.debug("soup_td_subject_href: {}".format(soup_td_subject.a['href']))
+            logger.debug("soup_td_date    : {}".format(soup_td_date.string.strip()))
+            logger.debug("soup_td_size    : {}".format(soup_td_size.string))
 
-        # object 생성.
-        torrcontent = {}
-        torrcontent['num']       = ""
-        torrcontent['title']     = soup_td_subject.a.string.strip()
-        relUrl                   = soup_td_subject.a['href']
-        torrcontent['url']       = re.sub('^../', 'https://torrentwal.com/', relUrl)
-        torrcontent['date']      = soup_td_date.string.strip()
-        #torrcontent['size']      = soup_td_size.string.strip()
-        torrcontent['publisher'] = "wal"
-        torrcontentlist.append(torrcontent)
+            # object 생성.
+            torrcontent = {}
+            torrcontent['num']       = ""
+            torrcontent['title']     = soup_td_subject.a.string.strip()
+            relUrl                   = soup_td_subject.a['href']
+            torrcontent['url']       = re.sub('^../', 'https://torrentwal.com/', relUrl)
+            torrcontent['date']      = soup_td_date.string.strip()
+            #torrcontent['size']      = soup_td_size.string.strip()
+            torrcontent['publisher'] = "wal"
+            torrcontentlist.append(torrcontent)
+
+        except:
+            logger.error("Error: ".format(ex))
+            continue
 
     return torrcontentlist
 
