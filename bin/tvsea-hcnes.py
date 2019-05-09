@@ -113,9 +113,13 @@ def loadConfig():
 
 
 def hajalisthtml2obj(htmlstring):
+    #logger.debug("Full html: {}". format(htmlstring))
     soup = BeautifulSoup(htmlstring, "lxml")
-    soup_board_list = soup('table', {'class':'table table-hover'})
+
+    # <div class="board_list" id="board_list">
+    soup_board_list = soup('div', {'class':'board_list'})
     #logger.debug("html1: {}".format(soup_board_list[0].prettify(formatter="html")))
+
     soup_trlist = soup_board_list[0].find_all('tr')
     #logger.debug("html2: {}".format(soup_trlist[1].prettify(formatter="html")))
 
@@ -133,22 +137,20 @@ def hajalisthtml2obj(htmlstring):
         #logger.debug("td html: {}".format(soup_tdlist))
         #logger.debug("soup_tdlist length: {}".format(len(soup_tdlist)))
 
-        if len(soup_tdlist) != 4:
+        if len(soup_tdlist) != 3:
             # 중간줄(선) skip
             continue
 
         soup_td1 = soup_tdlist[0]
         soup_td2 = soup_tdlist[1]
         soup_td3 = soup_tdlist[2]
-        soup_td4 = soup_tdlist[3]
         #logger.debug("soup_td1: {}".format(soup_td1))
         #logger.debug("soup_td2: {}".format(soup_td2))
         #logger.debug("soup_td3: {}".format(soup_td3))
-        #logger.debug("soup_td4: {}".format(soup_td4))
 
-        max_href_idx = len(soup_td2.div.find_all('a', recursive=False)) - 1
+        max_href_idx = len(soup_td1.find_all('a', recursive=False)) - 1
         
-        ahref = soup_td2.div.find_all('a', recursive=False)[max_href_idx]
+        ahref = soup_td1.find_all('a', recursive=False)[max_href_idx]
         title = ahref.get_text(__text_strip_str, strip=True).split(__text_strip_str)[0]
         
         #logger.debug("num  : {}".format(soup_td1.string.strip()))
@@ -157,12 +159,12 @@ def hajalisthtml2obj(htmlstring):
         
         # object 생성.
         torrcontent = {}
-        torrcontent['num']       = soup_td1.string.strip()
+        torrcontent['num']       = "-1"
         torrcontent['title']     = title
         #torrcontent['url']       = soup_td2.div.a['href']
         torrcontent['url']       = ahref['href']
-        torrcontent['date']      = soup_td3.string.strip()
-        torrcontent['size']      = soup_td4.string.strip()
+        torrcontent['date']      = soup_td2.string.strip()
+        torrcontent['size']      = soup_td3.string.strip()
         torrcontent['publisher'] = "haja"
         #logger.debug("torrcontent: {}".format(torrcontent))
         torrcontentlist.append(torrcontent)
@@ -176,7 +178,8 @@ def getHajaKtvList(tvGenreName):
     s.headers.update({'User-Agent': agent_string})
 
     # genreName으로 baseUrl을 담자.
-    hajaBaseUrl = "https://torrenthaja.com/bbs/board.php?bo_table=" + tvGenreName
+    #hajaBaseUrl = "https://torrenthaja.com/bbs/board.php?bo_table=" + tvGenreName
+    hajaBaseUrl = "https://torrenthaja.com/index.php?mid=" + tvGenreName
     # page를 path로 지정 하므로, 2page부터 사용할 pagePath를 담을 문자열.
     hajaPagePath = ""
     # 목록을 파싱하여 생성한 object 목록들을 추가할 array.
@@ -187,9 +190,9 @@ def getHajaKtvList(tvGenreName):
         if pagenum == 1:
             ransleep = (random.random()*80) + 5
             logger.info("sleep: {}".format(ransleep))
-            time.sleep(ransleep)
+            ##### time.sleep(ransleep)
         else:
-            hajaPagePath = "?&page=" + str(pagenum)
+            hajaPagePath = "&page=" + str(pagenum)
         
         # 생성된 주소로 연결 한다.
         r = s.get(hajaBaseUrl + hajaPagePath)
@@ -202,7 +205,7 @@ def getHajaKtvList(tvGenreName):
             if pagenum == pageCountForFeed: break
             ransleep = (random.random()*8) + 2
             logger.info("sleep: {}".format(ransleep))
-            time.sleep(ransleep)
+            ###### time.sleep(ransleep)
     return hajaContentlist
 
 
@@ -527,18 +530,26 @@ def updateQueue(tpe, title_keywords):
 def downloadFromHajaMagnet(tpe, title_keywords):
     #logger.debug("(downloadToIncomming)tep:{}".format(tpe))
     ed = tpe["ed"]
-    pr = urlparse(tpe["url"])
+    #pr = urlparse(tpe["url"])
+    pr = urlparse("https://torrenthaja.com/index.php?act=procDocumentMagnet&module=document&tid=131777")
     logger.info("epsode detail page: {}".format(tpe["url"]))
     #logger.debug("parser result:{}".format(pr))
 
+    agent_string = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36"
+    headers = {'User-Agent': agent_string, 'Referer': 'https://torrenthaja.com/torrent_docu/272954'}
+
     conn = http.client.HTTPSConnection(pr.netloc)
-    conn.request("GET", pr.path)
+    #conn.request("GET", pr.path, pr.query, headers)
+    conn.request("HEAD", "/index.php", "?act=procDocumentMagnet&module=document&tid=131777", headers)
     r1 = conn.getresponse()
     logger.debug("Status: {}, Reason: {}".format(r1.status, r1.reason))
+    logger.debug("Headers: {}".format(r1.headers))
+    logger.debug("Location: {}".format(r1.getheader("location")))
     if r1.status == 200:
         data2 = r1.read()
         #logger.debug("content html: {}".format(data2))
         soup = BeautifulSoup(data2, "lxml")
+        logger.debug("html: {}".format(soup.prettify(formatter="html")))
         
         ## Note: soup('table', {'class':'table table-hover'})
         ## Note: <button type="button" class="btn btn-success btn-xs" onclick="magnet_link('3FDE517AA51BBE67F1C0D5E43858ED4F4BEA385E');">
