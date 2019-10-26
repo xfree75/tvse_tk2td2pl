@@ -420,6 +420,12 @@ def dist(queue_name):
                     raise
 
             # 라이브러리에 저장될 파일 이름.
+            ## TODO: 합본 처리에 대한 기능을 추가 하도록 한다.
+            ## - 2개 4개 합본을 처리 할 수 있도록 해야 한다.
+            ## - 합본여부는 seriesdef에서 설정 할 수 있도록 해야 한다.
+            ## - 합본 series의 epsode를 처리 하는 경우.
+            ## - 2개 타입은 ["(epid * 2) - 1" + "-" + "(epid)"] 이다. ex) E05: "09-10"
+            ## - 4개 타입은 ["(epid * 4) - 3" + "-" + "(epid)"] 이다. ex) E05: "17-20"
             lib_target_name = ""
             if epsode_id_type == "date":
                 lib_target_name = series_name + " - " + epid + ".m4v"

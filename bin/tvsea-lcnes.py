@@ -221,7 +221,8 @@ def kimlisthtml2obj(htmlstring):
 
 def getKimKtvList(tvGenreName):
     # wiz에서는 browser agnet 헤더를 확인 하므로... 차후에는 환경 설정으로 바꾸도록 하자.
-    agent_string = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36"
+    # agent_string = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36"
+    agent_string = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.70 Safari/537.36"
     s = requests.Session()
     s.headers.update({'User-Agent': agent_string})
 
@@ -241,6 +242,30 @@ def getKimKtvList(tvGenreName):
         
         kimPagePath = "/torrent" + str(pagenum) + ".htm"
         
+        
+        
+        # https client 변경. 2019.10.26
+        pr = urlparse(kimBaseUrl + kimPagePath)
+        logger.info("get page: {}".format(kimBaseUrl + kimPagePath))
+        logger.debug("parser result:{}".format(pr))
+        
+        conn = http.client.HTTPSConnection(pr.netloc)
+        logger.debug("conn ok")
+        conn.request("GET", pr.path)
+        logger.debug("request.ok")
+        r = conn.getresponse()
+        logger.debug("Status: {}, Reason: {}".format(r.status, r.reason))
+        if r.status == 200:
+            data = r.read()
+            logger.info("Data : {}".format(data))
+            kimContentlist = kimContentlist + kimlisthtml2obj(data.decode())
+            # 바깥 for loop 를 설정에 의해 제어하도록 하면서, 이곳의 값도 그 값을 가지고 처리 하도록 변경 해야 한다.
+            if pagenum == pageCountForFeed: break
+            ransleep = (random.random()*8) + 2
+            logger.info("sleep: {}".format(ransleep))
+            time.sleep(ransleep)
+            
+        '''
         # 생성된 주소로 연결 한다.
         r = s.get(kimBaseUrl + kimPagePath)
         logger.info("Download status: {} / {}".format(r.status_code, kimBaseUrl + kimPagePath))
@@ -252,7 +277,7 @@ def getKimKtvList(tvGenreName):
             if pagenum == pageCountForFeed: break
             ransleep = (random.random()*8) + 2
             logger.info("sleep: {}".format(ransleep))
-            time.sleep(ransleep)
+            time.sleep(ransleep) '''
     return kimContentlist
 
 
