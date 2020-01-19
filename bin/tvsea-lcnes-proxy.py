@@ -249,7 +249,7 @@ def getKimKtvList(tvGenreName):
         if pagenum == 1:
             ransleep = (random.random()*80) + 5
             logger.info("sleep: {}".format(ransleep))
-            ##### time.sleep(ransleep)
+            time.sleep(ransleep)
         
         kimPagePath = "/torrent" + str(pagenum) + ".htm"
         
@@ -277,7 +277,7 @@ def getKimKtvList(tvGenreName):
             if pagenum == pageCountForFeed: break
             ransleep = (random.random()*8) + 2
             logger.info("sleep: {}".format(ransleep))
-            ##### time.sleep(ransleep)
+            time.sleep(ransleep)
             
     return kimContentlist
 
@@ -690,7 +690,7 @@ def downloadToIncomming(tpe, title_keywords):
                     attachDownload(pr.netloc, cp, tpe["url"], targetPath, cn)
                     ransleep = random.random()*10
                     logger.info("download complete. sleep: {}".format(ransleep))
-                    ##### time.sleep(ransleep)
+                    time.sleep(ransleep)
 
         ## queue 정보를 갱신 한다. 시리즈 이름. 다운로드 추가 된 에피소드 정보.
         updateQueue(tpe, title_keywords)
