@@ -16,6 +16,7 @@ import copy
 import http.client
 import requests
 import ntpath
+import base64
 import subprocess
 from urllib.parse import urlparse
 from os.path import basename
@@ -110,6 +111,16 @@ def loadConfig():
     global ctrp
     ctru = config["transmission_remote_username"]
     ctrp = config["transmission_remove_password"]
+
+    global proxy_host
+    global proxy_port
+    global proxy_auth_username
+    global proxy_auth_password
+
+    proxy_host = config["proxy_host"]
+    proxy_port = str(config["proxy_port"])
+    proxy_auth_username = config["proxy_auth_username"]
+    proxy_auth_password = config["proxy_auth_password"]
 
 def kimlisthtml2obj_old(htmlstring):
     logger.debug("called--------------------------------------------------------");
@@ -227,7 +238,7 @@ def getKimKtvList(tvGenreName):
     s.headers.update({'User-Agent': agent_string})
 
     # genreName으로 baseUrl을 담자.
-    kimBaseUrl = "https://torrentwal2.com/" + tvGenreName
+    kimBaseUrl = "https://torrentwal2.com:443/" + tvGenreName
     # page를 path로 지정 하므로, 2page부터 사용할 pagePath를 담을 문자열.
     kimPagePath = ""
     # 목록을 파싱하여 생성한 object 목록들을 추가할 array.
@@ -238,30 +249,26 @@ def getKimKtvList(tvGenreName):
         if pagenum == 1:
             ransleep = (random.random()*80) + 5
             logger.info("sleep: {}".format(ransleep))
-            time.sleep(ransleep)
+            ##### time.sleep(ransleep)
         
         kimPagePath = "/torrent" + str(pagenum) + ".htm"
         
+        # 2020.01.19(토) http proxy(smart dns proxy) 추가.
+        proxy_uri = "http://" + proxy_auth_username + ":" + proxy_auth_password + "@" + proxy_host + ":" + proxy_port
+        url = urlparse(proxy_uri)
+        conn = http.client.HTTPSConnection(url.hostname, url.port)
+        headers = {}
+        if url.username and url.password:
+            auth = '%s:%s' % (url.username, url.password)
+            #encauth = str(base64.b64encode(auth.encode())).replace("b'", "").replace("'", "")
+            headers['Proxy-Authorization'] = 'Basic ' + str(base64.b64encode(auth.encode())).replace("b'", "").replace("'", "")
         
-        
-        # https client 변경. 2019.10.26
         pr = urlparse(kimBaseUrl + kimPagePath)
-        logger.info("get page: {}".format(kimBaseUrl + kimPagePath))
-        logger.debug("parser result:{}".format(pr))
-        
-        conn = http.client.HTTPSConnection(pr.netloc)
-        logger.debug("conn ok")
-
-        # set proxy(smart dns proxy)
-        # browser에서도 잘 안됨. 추가 확인 필요.
-        # 그리고, 아래와 달리, 연결을 proxy에 하고, 터널 주소에 목적지(토렌트왈) 주소를 입력 해야 함.
-        # 일단 주석만 추가.. 다음에 해보도록..
-        #conn.set_tunnel("us-la2.serverlocation.co", 3128)
-
+        conn.set_tunnel(pr.hostname, pr.port, headers)
         conn.request("GET", pr.path)
-        logger.debug("request.ok")
         r = conn.getresponse()
         logger.debug("Status: {}, Reason: {}".format(r.status, r.reason))
+        
         if r.status == 200:
             data = r.read()
             logger.info("Data : {}".format(data))
@@ -270,21 +277,8 @@ def getKimKtvList(tvGenreName):
             if pagenum == pageCountForFeed: break
             ransleep = (random.random()*8) + 2
             logger.info("sleep: {}".format(ransleep))
-            time.sleep(ransleep)
+            ##### time.sleep(ransleep)
             
-        '''
-        # 생성된 주소로 연결 한다.
-        r = s.get(kimBaseUrl + kimPagePath)
-        logger.info("Download status: {} / {}".format(r.status_code, kimBaseUrl + kimPagePath))
-        if r.status_code == 200:
-            data = r.content
-            #logger.info("Data : {}".format(data))
-            kimContentlist = kimContentlist + kimlisthtml2obj(data.decode())
-            # 바깥 for loop 를 설정에 의해 제어하도록 하면서, 이곳의 값도 그 값을 가지고 처리 하도록 변경 해야 한다.
-            if pagenum == pageCountForFeed: break
-            ransleep = (random.random()*8) + 2
-            logger.info("sleep: {}".format(ransleep))
-            time.sleep(ransleep) '''
     return kimContentlist
 
 
@@ -599,10 +593,26 @@ def downloadFromKimMagnet(tpe, title_keywords):
     logger.info("epsode detail page: {}".format(tpe["url"]))
     logger.debug("parser result:{}".format(pr))
 
-    conn = http.client.HTTPSConnection(pr.netloc)
+    '''conn = http.client.HTTPSConnection(pr.netloc)
+    conn.request("GET", pr.path)
+    r1 = conn.getresponse()
+    logger.debug("Status: {}, Reason: {}".format(r1.status, r1.reason))'''
+    
+    proxy_uri = "http://" + proxy_auth_username + ":" + proxy_auth_password + "@" + proxy_host + ":" + proxy_port
+    proxy_url = urlparse(proxy_uri)
+    conn = http.client.HTTPSConnection(proxy_url.hostname, proxy_url.port)
+    headers = {}
+    if proxy_url.username and proxy_url.password:
+        auth = '%s:%s' % (proxy_url.username, proxy_url.password)
+        #encauth = str(base64.b64encode(auth.encode())).replace("b'", "").replace("'", "")
+        headers['Proxy-Authorization'] = 'Basic ' + str(base64.b64encode(auth.encode())).replace("b'", "").replace("'", "")
+    
+    #pr = urlparse(pr.path)
+    conn.set_tunnel(pr.hostname, pr.port, headers)
     conn.request("GET", pr.path)
     r1 = conn.getresponse()
     logger.debug("Status: {}, Reason: {}".format(r1.status, r1.reason))
+    
     if r1.status == 200:
         data2 = r1.read()
         logger.debug("content html: {}".format(data2))
@@ -680,7 +690,7 @@ def downloadToIncomming(tpe, title_keywords):
                     attachDownload(pr.netloc, cp, tpe["url"], targetPath, cn)
                     ransleep = random.random()*10
                     logger.info("download complete. sleep: {}".format(ransleep))
-                    time.sleep(ransleep)
+                    ##### time.sleep(ransleep)
 
         ## queue 정보를 갱신 한다. 시리즈 이름. 다운로드 추가 된 에피소드 정보.
         updateQueue(tpe, title_keywords)
