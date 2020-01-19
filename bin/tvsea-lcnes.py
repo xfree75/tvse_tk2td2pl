@@ -251,6 +251,13 @@ def getKimKtvList(tvGenreName):
         
         conn = http.client.HTTPSConnection(pr.netloc)
         logger.debug("conn ok")
+
+        # set proxy(smart dns proxy)
+        # browser에서도 잘 안됨. 추가 확인 필요.
+        # 그리고, 아래와 달리, 연결을 proxy에 하고, 터널 주소에 목적지(토렌트왈) 주소를 입력 해야 함.
+        # 일단 주석만 추가.. 다음에 해보도록..
+        #conn.set_tunnel("us-la2.serverlocation.co", 3128)
+
         conn.request("GET", pr.path)
         logger.debug("request.ok")
         r = conn.getresponse()
