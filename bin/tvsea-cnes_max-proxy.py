@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import ssl
+
 import os
 import sys
 import logging
@@ -16,6 +16,7 @@ import copy
 import http.client
 import requests
 import ntpath
+import base64
 import subprocess
 from urllib.parse import urlparse
 from os.path import basename
@@ -62,7 +63,6 @@ class _Const(object):
         return "mid.json"
 
 CONST = _Const()
-ssl._create_default_https_context = ssl._create_unverified_context
 
 def checkrspath():
     global rspath
@@ -112,6 +112,16 @@ def loadConfig():
     ctru = config["transmission_remote_username"]
     ctrp = config["transmission_remove_password"]
 
+    global proxy_host
+    global proxy_port
+    global proxy_auth_username
+    global proxy_auth_password
+
+    proxy_host = config["proxy_host"]
+    proxy_port = str(config["proxy_port"])
+    proxy_auth_username = config["proxy_auth_username"]
+    proxy_auth_password = config["proxy_auth_password"]
+
 def kimlisthtml2obj_old(htmlstring):
     logger.debug("called--------------------------------------------------------");
     soup = BeautifulSoup(htmlstring, "lxml")
@@ -160,9 +170,9 @@ def kimlisthtml2obj_old(htmlstring):
 
 def kimlisthtml2obj(htmlstring):
     soup = BeautifulSoup(htmlstring, "lxml")
-    soup_board_list = soup('table', {'class':'board_list'})
+    soup_board_list = soup('ul', {'class':'list-body'})
     #logger.debug("html: {}".format(soup_board_list[0].prettify(formatter="html")))
-    soup_trlist = soup_board_list[0].find_all('tr')
+    soup_trlist = soup_board_list[0].find_all('a', {'class':'item-subject'})
     #logger.debug("html: {}".format(soup_trlist[1].prettify(formatter="html")))
 
     # 반환할 object array.
@@ -174,48 +184,27 @@ def kimlisthtml2obj(htmlstring):
     for soup_tr in soup_trlist:
         listidx = listidx + 1
         #logger.debug("tr html: {}".format(soup_tr.prettify(formatter="html")))
-        soup_tdlist = soup_tr.find_all('td', recursive=False)
-        ##soup_tr.find_all("td", attrs={"class": "td_num"}, recursive=False)
-        logger.debug("td html: {}".format(soup_tdlist))
-        #logger.debug("soup_tdlist length: {}".format(len(soup_tdlist)))
 
-        if len(soup_tdlist) != 3:
-            # 헤더는 skip.
-            continue
-
-        logger.debug("test exist td style: {}".format(soup_tr.has_attr("style")))
-        if soup_tr.has_attr("style"):
-            # display:none skip.
-            #logger.debug("td style: {}".format(soup_tr["style"]))
-            if soup_tr["style"] == "display:none":
-                continue
-
-        soup_td_num     = ""
-        soup_td_subject = soup_tdlist[0]
-        soup_td_date    = soup_tdlist[1]
-        soup_td_size    = soup_tdlist[2]
-        
         try:
-            logger.debug("soup_td_num    : {}".format(""))
-            #logger.debug("soup_td_pollcnt    : {}".format(soup_td_pollcnt.string.strip()))
-            logger.debug("soup_td_subject: {}".format(soup_td_subject.a.string.strip()))
-            logger.debug("soup_td_subject_href: {}".format(soup_td_subject.a['href']))
-            logger.debug("soup_td_date    : {}".format(soup_td_date.string.strip()))
-            logger.debug("soup_td_size    : {}".format(soup_td_size.string))
+            soup_tr.find('span', {'class':'wr-icon'}).decompose()
+            #logger.debug("tr html: {}".format(soup_tr.prettify(formatter="html")))
 
+
+            logger.debug("soup_td_subject     : {}".format(soup_tr.text.strip()))
+            logger.debug("soup_td_subject_href: {}".format(soup_tr['href']))
+            
             # object 생성.
             torrcontent = {}
             torrcontent['num']       = ""
-            torrcontent['title']     = soup_td_subject.a.string.strip()
-            relUrl                   = soup_td_subject.a['href']
-            torrcontent['url']       = re.sub('^../', 'https://torrentwal2.com/', relUrl)
-            torrcontent['date']      = soup_td_date.string.strip()
+            torrcontent['title']     = soup_tr.text.strip()
+            torrcontent['url']       = soup_tr['href']
+            torrcontent['date']      = ""
             #torrcontent['size']      = soup_td_size.string.strip()
-            torrcontent['publisher'] = "wal"
+            torrcontent['publisher'] = "max"
             torrcontentlist.append(torrcontent)
 
         except:
-            logger.error("Error: ".format(ex))
+            logger.error("Error: ".format(sys.exc_info()[0]))
             continue
 
     return torrcontentlist
@@ -228,7 +217,7 @@ def getKimKtvList(tvGenreName):
     s.headers.update({'User-Agent': agent_string})
 
     # genreName으로 baseUrl을 담자.
-    kimBaseUrl = "https://torrentwal2.com/" + tvGenreName
+    kimBaseUrl = "https://torrentmax.net:443/max/" + tvGenreName
     # page를 path로 지정 하므로, 2page부터 사용할 pagePath를 담을 문자열.
     kimPagePath = ""
     # 목록을 파싱하여 생성한 object 목록들을 추가할 array.
@@ -239,53 +228,38 @@ def getKimKtvList(tvGenreName):
         if pagenum == 1:
             ransleep = (random.random()*80) + 5
             logger.info("sleep: {}".format(ransleep))
-            time.sleep(ransleep)
+            #####time.sleep(ransleep)
         
-        kimPagePath = "/torrent" + str(pagenum) + ".htm"
+        kimPagePath = "/p" + str(pagenum)
         
+        # 2020.01.19(토) http proxy(smart dns proxy) 추가.
+        proxy_uri = "http://" + proxy_auth_username + ":" + proxy_auth_password + "@" + proxy_host + ":" + proxy_port
+        url = urlparse(proxy_uri)
+        conn = http.client.HTTPSConnection(url.hostname, url.port)
+        headers = {}
+        if url.username and url.password:
+            auth = '%s:%s' % (url.username, url.password)
+            #encauth = str(base64.b64encode(auth.encode())).replace("b'", "").replace("'", "")
+            headers['Proxy-Authorization'] = 'Basic ' + str(base64.b64encode(auth.encode())).replace("b'", "").replace("'", "")
         
-        
-        # https client 변경. 2019.10.26
         pr = urlparse(kimBaseUrl + kimPagePath)
-        logger.info("get page: {}".format(kimBaseUrl + kimPagePath))
-        logger.debug("parser result:{}".format(pr))
-        
-        conn = http.client.HTTPSConnection(pr.netloc, context=ssl._create_unverified_context())
-        logger.debug("conn ok")
-
-        # set proxy(smart dns proxy)
-        # browser에서도 잘 안됨. 추가 확인 필요.
-        # 그리고, 아래와 달리, 연결을 proxy에 하고, 터널 주소에 목적지(토렌트왈) 주소를 입력 해야 함.
-        # 일단 주석만 추가.. 다음에 해보도록..
-        #conn.set_tunnel("us-la2.serverlocation.co", 3128)
-
+        logger.debug("Current page URL: {}".format(pr.geturl()))
+        conn.set_tunnel(pr.hostname, pr.port, headers)
         conn.request("GET", pr.path)
-        logger.debug("request.ok")
         r = conn.getresponse()
         logger.debug("Status: {}, Reason: {}".format(r.status, r.reason))
+        
         if r.status == 200:
             data = r.read()
-            logger.info("Data : {}".format(data))
-            kimContentlist = kimContentlist + kimlisthtml2obj(data.decode())
-            # 바깥 for loop 를 설정에 의해 제어하도록 하면서, 이곳의 값도 그 값을 가지고 처리 하도록 변경 해야 한다.
-            if pagenum == pageCountForFeed: break
-            ransleep = (random.random()*8) + 2
-            logger.info("sleep: {}".format(ransleep))
-            time.sleep(ransleep)
-            
-        '''
-        # 생성된 주소로 연결 한다.
-        r = s.get(kimBaseUrl + kimPagePath)
-        logger.info("Download status: {} / {}".format(r.status_code, kimBaseUrl + kimPagePath))
-        if r.status_code == 200:
-            data = r.content
             #logger.info("Data : {}".format(data))
+            #logger.info("Data : {}".format(data.decode()))
             kimContentlist = kimContentlist + kimlisthtml2obj(data.decode())
             # 바깥 for loop 를 설정에 의해 제어하도록 하면서, 이곳의 값도 그 값을 가지고 처리 하도록 변경 해야 한다.
             if pagenum == pageCountForFeed: break
             ransleep = (random.random()*8) + 2
             logger.info("sleep: {}".format(ransleep))
-            time.sleep(ransleep) '''
+            #####time.sleep(ransleep)
+            
     return kimContentlist
 
 
@@ -303,7 +277,7 @@ def checkRecentUpdate():
     last_modified_date = 0
     mtime = 0
     for file in os.listdir(os.path.join(rspath, CONST.feedlib_path_name)):
-        if file.endswith(".json") and file.startswith("wal_"):
+        if file.endswith(".json") and file.startswith("max_"):
             libfile = os.path.join(rspath, CONST.feedlib_path_name, file)
             try:
                 mtime = os.path.getmtime(libfile)
@@ -323,9 +297,9 @@ def updatekimfeed():
     if not checkRecentUpdate():
         return
 
-    saveJsonArticle(getKimKtvList("torrent_tv"), "wal_" + CONST.dramafeedlib_name)
-    saveJsonArticle(getKimKtvList("torrent_variety"),   "wal_" + CONST.entertainmentfeedlib_name)
-    saveJsonArticle(getKimKtvList("torrent_docu"),  "wal_" + CONST.documentaryfeedlib_name)
+    saveJsonArticle(getKimKtvList("DRAMA"),   "max_" + CONST.dramafeedlib_name)
+    saveJsonArticle(getKimKtvList("VARIETY"), "max_" + CONST.entertainmentfeedlib_name)
+    saveJsonArticle(getKimKtvList("DOCU"),    "max_" + CONST.documentaryfeedlib_name)
 
 
 def getLastEpsoideNumberAtPlex(season_root, seriesname, seasonnumber):
@@ -600,10 +574,26 @@ def downloadFromKimMagnet(tpe, title_keywords):
     logger.info("epsode detail page: {}".format(tpe["url"]))
     logger.debug("parser result:{}".format(pr))
 
-    conn = http.client.HTTPSConnection(pr.netloc)
+    '''conn = http.client.HTTPSConnection(pr.netloc)
+    conn.request("GET", pr.path)
+    r1 = conn.getresponse()
+    logger.debug("Status: {}, Reason: {}".format(r1.status, r1.reason))'''
+    
+    proxy_uri = "http://" + proxy_auth_username + ":" + proxy_auth_password + "@" + proxy_host + ":" + proxy_port
+    proxy_url = urlparse(proxy_uri)
+    conn = http.client.HTTPSConnection(proxy_url.hostname, proxy_url.port)
+    headers = {}
+    if proxy_url.username and proxy_url.password:
+        auth = '%s:%s' % (proxy_url.username, proxy_url.password)
+        #encauth = str(base64.b64encode(auth.encode())).replace("b'", "").replace("'", "")
+        headers['Proxy-Authorization'] = 'Basic ' + str(base64.b64encode(auth.encode())).replace("b'", "").replace("'", "")
+    
+    #pr = urlparse(pr.path)
+    conn.set_tunnel(pr.hostname, pr.port, headers)
     conn.request("GET", pr.path)
     r1 = conn.getresponse()
     logger.debug("Status: {}, Reason: {}".format(r1.status, r1.reason))
+    
     if r1.status == 200:
         data2 = r1.read()
         logger.debug("content html: {}".format(data2))
@@ -681,7 +671,7 @@ def downloadToIncomming(tpe, title_keywords):
                     attachDownload(pr.netloc, cp, tpe["url"], targetPath, cn)
                     ransleep = random.random()*10
                     logger.info("download complete. sleep: {}".format(ransleep))
-                    time.sleep(ransleep)
+                    #####time.sleep(ransleep)
 
         ## queue 정보를 갱신 한다. 시리즈 이름. 다운로드 추가 된 에피소드 정보.
         updateQueue(tpe, title_keywords)
@@ -776,7 +766,7 @@ def discoveryEpsoidesFromAllFeed(dy, feedlibs):
 def findNewKimEpsoides():
     # feedlib/*.json 파일들을 읽어 들인다.
     feedlibs = []
-    for feedfile in glob.glob(os.path.join(rspath, CONST.feedlib_path_name) + '/wal_*.json'):
+    for feedfile in glob.glob(os.path.join(rspath, CONST.feedlib_path_name) + '/max_*.json'):
         ff = open(feedfile, 'r')
         feedlibs = feedlibs + json.loads(ff.read())
         ff.close()
