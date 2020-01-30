@@ -302,8 +302,9 @@ def distByMv(q, d, t):
         logger.error("Source file is not exist: {}".format(source))
         return False
 
-    #TODO: 다른 파일시스템으로 rename 하는 경우는 오류가 발생 되므로 BUG! 차후 수정 해야 함.
-    os.rename(source, target)
+    # 2020.01.30: 파일이스템이 다른 경로에 이동하기 위해 shutil.move 로 변경.
+    #os.rename(source, target)
+    shutil.move(source, target)
     logger.info("Complete move to plex lib: {}".format(target))
 
     # download 경로의 .size 파일 제거.
