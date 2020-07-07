@@ -10,7 +10,7 @@ sudo ipsec up vpn-nw \
     && tvsea-cnes_view.py \
     && sleep 80 \
     
-sudo ipsec down vpn-vpn-nw
+sudo ipsec down vpn-nw
 sleep 8
 sudo systemctl restart plexmediaserver.service
 sleep 8
