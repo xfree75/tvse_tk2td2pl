@@ -228,7 +228,7 @@ def getKimKtvList(tvGenreName):
     kimPagePath = ""
     # 목록을 파싱하여 생성한 object 목록들을 추가할 array.
     kimContentlist = []
-    pageCountForFeed = 2
+    pageCountForFeed = 4
     for pagenum in range(1, pageCountForFeed + 1):
 
         if pagenum == 1:

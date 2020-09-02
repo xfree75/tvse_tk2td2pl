@@ -217,12 +217,12 @@ def getKimKtvList(tvGenreName):
     s.headers.update({'User-Agent': agent_string})
 
     # genreName으로 baseUrl을 담자.
-    kimBaseUrl = "https://torrentmax.vip:443/max/" + tvGenreName
+    kimBaseUrl = "https://torrentmax1.com:443/max/" + tvGenreName
     # page를 path로 지정 하므로, 2page부터 사용할 pagePath를 담을 문자열.
     kimPagePath = ""
     # 목록을 파싱하여 생성한 object 목록들을 추가할 array.
     kimContentlist = []
-    pageCountForFeed = 2
+    pageCountForFeed = 4
     for pagenum in range(1, pageCountForFeed + 1):
 
         if pagenum == 1:
