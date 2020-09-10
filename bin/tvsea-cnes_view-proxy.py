@@ -18,6 +18,7 @@ import requests
 import ntpath
 import base64
 import subprocess
+import getopt
 from urllib.parse import urlparse
 from os.path import basename
 from bs4 import BeautifulSoup
@@ -63,6 +64,38 @@ class _Const(object):
         return "mid.json"
 
 CONST = _Const()
+
+def help():
+   print("print help usage: {} -bfp5".format(os.path.basename(__file__)))
+   print("    -b, --burst_process: ignore time sleep for feed update & add torrent.")
+   print("    -f, --force_update: force feed refresh.")
+   print("    -p 5, --pages=5: read pages for feed refreash.")
+   return
+
+def readArgument(argv):
+    global burst_process
+    global force_update
+    global pages
+    burst_process = False
+    force_update = False
+    pages = 4 
+    try:
+        opts, etc_args = getopt.getopt(argv[1:], "hbfp:", ["help", "burst_process", "force_update", "pages="])
+    except getopt.GetoptError as err:
+        print("Argument Error: {}".format(err))
+        sys.exit(1)
+    for opt, arg in opts:
+        if opt in ("-h", "--help"):
+            help()
+            sys.exit()
+        elif opt in ("-b", "--burst_process"):
+            burst_process = True
+        elif opt in ("-f", "--force_update"):
+            force_update = True
+        elif opt in ("-p", "--pages"):
+            pages = arg 
+
+    print("Argument option - burst_procss: {}, force_update: {}, pages: {}".format(burst_process, force_update, pages)) 
 
 def checkrspath():
     global rspath
@@ -116,11 +149,14 @@ def loadConfig():
     global proxy_port
     global proxy_auth_username
     global proxy_auth_password
-
     proxy_host = config["proxy_host"]
     proxy_port = str(config["proxy_port"])
     proxy_auth_username = config["proxy_auth_username"]
     proxy_auth_password = config["proxy_auth_password"]
+
+    global base_dn
+    base_dn = config["base_dn_view"]
+
 
 def kimlisthtml2obj_old(htmlstring):
     logger.debug("called--------------------------------------------------------");
@@ -223,18 +259,19 @@ def getKimKtvList(tvGenreName):
     s.headers.update({'User-Agent': agent_string})
 
     # genreName으로 baseUrl을 담자.
-    kimBaseUrl = "https://torrentview19.net:443/bbs/board.php?bo_table=" + tvGenreName
+    kimBaseUrl = "https://" + base_dn + ":443/bbs/board.php?bo_table=" + tvGenreName
     # page를 path로 지정 하므로, 2page부터 사용할 pagePath를 담을 문자열.
     kimPagePath = ""
     # 목록을 파싱하여 생성한 object 목록들을 추가할 array.
     kimContentlist = []
-    pageCountForFeed = 4
+    pageCountForFeed = int(pages)
     for pagenum in range(1, pageCountForFeed + 1):
 
         if pagenum == 1:
             ransleep = (random.random()*8) + 5
             logger.info("sleep for first page: {}".format(ransleep))
-            time.sleep(ransleep)
+            if burst_process == False:
+                time.sleep(ransleep)
         
         kimPagePath = "&page=" + str(pagenum)
         
@@ -264,7 +301,8 @@ def getKimKtvList(tvGenreName):
             if pagenum == pageCountForFeed: break
             ransleep = (random.random()*8) + 2
             logger.info("sleep for next page: {}".format(ransleep))
-            time.sleep(ransleep)
+            if burst_process == False:
+                time.sleep(ransleep)
             
     return kimContentlist
 
@@ -278,6 +316,8 @@ def saveJsonArticle(listobj, type):
     f.close()
 
 def checkRecentUpdate():
+    if force_update == True:
+        return True
     current = time.time()
     logger.debug("Current time: {}".format(current))
     last_modified_date = 0
@@ -679,7 +719,8 @@ def downloadToIncomming(tpe, title_keywords):
                     attachDownload(pr.netloc, cp, tpe["url"], targetPath, cn)
                     ransleep = random.random()*10
                     logger.info("download complete. sleep: {}".format(ransleep))
-                    time.sleep(ransleep)
+                    if burst_process == False:
+                        time.sleep(ransleep)
 
         ## queue 정보를 갱신 한다. 시리즈 이름. 다운로드 추가 된 에피소드 정보.
         updateQueue(tpe, title_keywords)
@@ -787,7 +828,8 @@ def findNewKimEpsoides():
         discoveryEpsoidesFromAllFeed(name, feedlibs)
 
 
-def main():
+def main(argv):
+    readArgument(argv)
     try:
         checkrspath()
         startLogging()
@@ -821,6 +863,7 @@ def main():
     logger.info("All task complete.")
     logger.info("===============================================")
     logger.info("-----------------------------------------------")
+    sys.exit()
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv)
