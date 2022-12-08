@@ -300,8 +300,18 @@ def getKimKtvList(tvGenreName):
         logger.debug("Current page URL: {}".format(pr.geturl()))
         """conn.request("GET", pr.path + "?" + pr.query)
         r = conn.getresponse()"""
-        r = requests.get(pr.geturl(), headers=headers)
-        #logger.debug(r.text)
+        
+        for i in range(0, 20):
+            #while True:
+            try:
+                r = requests.get(pr.geturl(), headers=headers)
+                logger.debug("Success - Retry count: {}".format(i))
+            except:
+                logger.debug("Except - Retry count: {}".format(i))
+                time.sleep(1)
+                continue
+            break
+        logger.debug(r.text)
         """
         logger.debug("Status: {}, Reason: {}".format(r.status, r.reason))
         
@@ -643,55 +653,53 @@ def downloadFromKimMagnet(tpe, title_keywords):
     logger.info("epsode detail page: {}".format(tpe["url"]))
     logger.debug("parser result:{}".format(pr))
 
-    '''conn = http.client.HTTPSConnection(pr.netloc)
-    conn.request("GET", pr.path)
-    r1 = conn.getresponse()
-    logger.debug("Status: {}, Reason: {}".format(r1.status, r1.reason))'''
-    
-    proxy_uri = "http://" + proxy_auth_username + ":" + proxy_auth_password + "@" + proxy_host + ":" + proxy_port
-    proxy_url = urlparse(proxy_uri)
-    conn = http.client.HTTPSConnection(proxy_url.hostname, proxy_url.port)
-    headers = {}
-    if proxy_url.username and proxy_url.password:
-        auth = '%s:%s' % (proxy_url.username, proxy_url.password)
-        #encauth = str(base64.b64encode(auth.encode())).replace("b'", "").replace("'", "")
-        headers['Proxy-Authorization'] = 'Basic ' + str(base64.b64encode(auth.encode())).replace("b'", "").replace("'", "")
-    
-    #pr = urlparse(pr.path)
-    conn.set_tunnel(pr.hostname, pr.port, headers)
-    conn.request("GET", pr.path + "?" + pr.query)
-    r1 = conn.getresponse()
-    logger.debug("Status: {}, Reason: {}".format(r1.status, r1.reason))
-    
-    if r1.status == 200:
-        data2 = r1.read()
-        logger.debug("content html: {}".format(data2.decode()))
-        soup = BeautifulSoup(data2, "lxml")
-        soup_bo_v_img_list = soup.find_all("a")
-        #logger.debug("A elements: {}".format(soup_bo_v_img_list))
+    headers = requests.utils.default_headers()
+    headers.update({'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36'})
+    #conn = http.client.HTTPSConnection(pr.hostname, pr.port)
 
-        for soup_bo_v_img in soup_bo_v_img_list:
+    #conn.request("GET", pr.path + "?" + pr.query)
+    #r1 = conn.getresponse()
+    #logger.debug("Status: {}, Reason: {}".format(r1.status, r1.reason))
+   
+    for i in range(0, 20):
+        try:
+            r = requests.get(pr.geturl(), headers=headers)
+            logger.debug("Success - Retry count: {}".format(i))
+        except:
+            logger.debug("Except - Retry count: {}".format(i))
+            time.sleep(1)
+            continue
+        break
+    logger.debug(r.text)
+ 
+    data2 = r.text
+    #logger.debug("content html: {}".format(data2))
+    soup = BeautifulSoup(data2, "lxml")
+    soup_bo_v_img_list = soup.find_all("a")
+    #logger.debug("A elements: {}".format(soup_bo_v_img_list))
 
-            try:
-                magnet_string = soup_bo_v_img['href']
-                #logger.debug("input value: {} / {}".format(soup_bo_v_img, magnet_string))
-                logger.debug("ahtml: {} ".format(soup_bo_v_img))
-                logger.debug("url: {} ".format(magnet_string))
-                if magnet_string.startswith('magnet:?'):
-                    logger.info("Start adding magnet: {}({}) s{} e{} : {}".format(ed["series_name"], ed["release_year"], ed["season_number"], tpe["epid"], tpe["title"]))
+    for soup_bo_v_img in soup_bo_v_img_list:
 
-                    cmdstr = "transmission-remote --auth=" + ctru + ":" + ctrp + " -a \"" + magnet_string + "\""
-                    result = subprocess.check_output(cmdstr, shell=True)
-                    logger.info("Complete adding magnet. result: {}".format(result))
+        try:
+            magnet_string = soup_bo_v_img['href']
+            #logger.debug("input value: {} / {}".format(soup_bo_v_img, magnet_string))
+            logger.debug("ahtml: {} ".format(soup_bo_v_img))
+            logger.debug("url: {} ".format(magnet_string))
+            if magnet_string.startswith('magnet:?'):
+                logger.info("Start adding magnet: {}({}) s{} e{} : {}".format(ed["series_name"], ed["release_year"], ed["season_number"], tpe["epid"], tpe["title"]))
 
-                    ## queue 정보를 갱신 한다. 시리즈 이름. 다운로드 추가 된 에피소드 정보.
-                    updateQueue(tpe, title_keywords)
+                cmdstr = "transmission-remote --auth=" + ctru + ":" + ctrp + " -a \"" + magnet_string + "\""
+                result = subprocess.check_output(cmdstr, shell=True)
+                logger.info("Complete adding magnet. result: {}".format(result))
 
-            except KeyError as kerr:
-                logger.debug("KeyError cause by none value. html: {}".format(soup_bo_v_img))
-                continue
+                ## queue 정보를 갱신 한다. 시리즈 이름. 다운로드 추가 된 에피소드 정보.
+                updateQueue(tpe, title_keywords)
 
-    conn.close()
+        except KeyError as kerr:
+            logger.debug("KeyError cause by none value. html: {}".format(soup_bo_v_img))
+            continue
+
+    #conn.close()
 
 
 def downloadToIncomming(tpe, title_keywords):
