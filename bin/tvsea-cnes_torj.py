@@ -293,25 +293,25 @@ def getKimKtvList(tvGenreName):
 
         headers = requests.utils.default_headers()
         headers.update({'User-Agent':'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/107.0.0.0 Safari/537.36'})
-        url = urlparse(kimBaseUrl)
-        conn = http.client.HTTPSConnection(url.hostname, url.port)
+        #url = urlparse(kimBaseUrl)
+        #conn = http.client.HTTPSConnection(url.hostname, url.port)
         
         pr = urlparse(kimBaseUrl + kimPagePath)
         logger.debug("Current page URL: {}".format(pr.geturl()))
         """conn.request("GET", pr.path + "?" + pr.query)
         r = conn.getresponse()"""
         
-        for i in range(0, 20):
+        for i in range(0, 30):
             #while True:
             try:
                 r = requests.get(pr.geturl(), headers=headers)
                 logger.debug("Success - Retry count: {}".format(i))
+                break
             except:
                 logger.debug("Except - Retry count: {}".format(i))
                 time.sleep(1)
                 continue
-            break
-        logger.debug(r.text)
+        #logger.debug(r.text)
         """
         logger.debug("Status: {}, Reason: {}".format(r.status, r.reason))
         
@@ -337,12 +337,13 @@ def getKimKtvList(tvGenreName):
         logger.info("sleep for next page: {}".format(ransleep))
         if burst_process == False:
     	    time.sleep(ransleep)
-        return kimContentlist
+        
+    return kimContentlist
 
 
 def saveJsonArticle(listobj, type):
     formatedJsonStr = json.dumps(listobj, indent=4, sort_keys=False, ensure_ascii=False)
-    logger.debug("Formatted json: {}".format(formatedJsonStr))
+    #logger.debug("Formatted json: {}".format(formatedJsonStr))
     feedlib_path = os.path.join(rspath, CONST.feedlib_path_name, type)
     f = open(feedlib_path, 'w')
     f.write(formatedJsonStr)
