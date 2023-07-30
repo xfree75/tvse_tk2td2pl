@@ -201,7 +201,7 @@ def kimlisthtml2obj(htmlstring):
             torrcontentlist.append(torrcontent)
 
         except:
-            logger.error("Error: ".format(sys.exc_info()[0]))
+            logger.warn("Unknown error at kimlisthtml2obj(): ".format(sys.exc_info()[0]))
             continue
     
     return torrcontentlist
@@ -593,11 +593,11 @@ def downloadFromKimMagnet(tpe, title_keywords):
     conn.set_tunnel(pr.hostname, pr.port, headers)
     conn.request("GET", pr.path + "?" + pr.query)
     r1 = conn.getresponse()
-    logger.debug("Status: {}, Reason: {}".format(r1.status, r1.reason))
+    #logger.debug("Status: {}, Reason: {}".format(r1.status, r1.reason))
     
     if r1.status == 200:
         data2 = r1.read()
-        logger.debug("content html: {}".format(data2.decode()))
+        #logger.debug("content html: {}".format(data2.decode()))
         soup = BeautifulSoup(data2, "lxml")
         soup_bo_v_img_list = soup.find_all("a")
         #logger.debug("A elements: {}".format(soup_bo_v_img_list))
@@ -607,8 +607,8 @@ def downloadFromKimMagnet(tpe, title_keywords):
             try:
                 magnet_string = soup_bo_v_img['href']
                 #logger.debug("input value: {} / {}".format(soup_bo_v_img, magnet_string))
-                logger.debug("ahtml: {} ".format(soup_bo_v_img))
-                logger.debug("url: {} ".format(magnet_string))
+                #logger.debug("ahtml: {} ".format(soup_bo_v_img))
+                #logger.debug("url: {} ".format(magnet_string))
                 if magnet_string.startswith('magnet:?'):
                     logger.info("Start adding magnet: {}({}) s{} e{} : {}".format(ed["series_name"], ed["release_year"], ed["season_number"], tpe["epid"], tpe["title"]))
 
