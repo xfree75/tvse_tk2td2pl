@@ -73,7 +73,7 @@ def readArgument(argv):
     global pages
     burst_process = False
     force_update = False
-    pages = 4 
+    pages = 1 
     try:
         opts, etc_args = getopt.getopt(argv[1:], "hbfp:", ["help", "burst_process", "force_update", "pages="])
     except getopt.GetoptError as err:
@@ -130,8 +130,10 @@ def startLogging():
     print("Complete initialize logging. logfile: {}".format(logfile))
 
 def loadConfig():
-    configYaml = os.path.join(rspath) + '/config.yaml'
-    config = yaml.load(codecs.open(configYaml, "r", "utf-8"))
+    configYaml = os.path.join(rspath, 'config.yaml')
+    #config = yaml.load(codecs.open(configYaml, "r", "utf-8"))
+    with codecs.open(configYaml, 'r', 'utf-8') as f:
+        config = yaml.safe_load(f)  # 안전한 로더
     print("Complete loading config from yaml file. configfile: {}".format(configYaml))
 
     global ctru
@@ -223,9 +225,67 @@ def boartlisthtml2obj(htmlstring):
     return torrcontentlist
 
 def getKtvList(tvGenreName):
+    # wiz에서는 browser agnet 헤더를 확인 하므로...
+    agent_string = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
+
+    # 세션 생성 및 헤더 설정
+    s = requests.Session()
+    s.headers.update({'User-Agent': agent_string})
+
+    # genreName으로 baseUrl을 담자. (원본 코드의 /t/ 경로 포함)
+    boardBaseUrl = "https://" + base_dn + ":443/t/" + tvGenreName
+    
+    boardContentlist = []
+    pageCountForFeed = int(pages)
+    
+    for pagenum in range(1, pageCountForFeed + 1):
+
+        # 1페이지 진입 전 딜레이 (Burst 방지)
+        if pagenum == 1:
+            ransleep = (random.random() * 40) + 5
+            logger.info("sleep for first page: {}".format(ransleep))
+            if burst_process == False:
+                time.sleep(ransleep)
+        
+        # 요청할 전체 URL 구성
+        target_url = boardBaseUrl + "?page=" + str(pagenum)
+        logger.debug("Current page URL: {}".format(target_url))
+        
+        try:
+            # [변경됨] Proxy 설정 없이 requests 세션으로 직접 GET 요청
+            # timeout을 설정하여 무한 대기 방지
+            r = s.get(target_url, timeout=30)
+            logger.debug("Status: {}, Reason: {}".format(r.status_code, r.reason))
+            
+            if r.status_code == 200:
+                # requests의 .text는 자동으로 디코딩된 문자열을 반환합니다.
+                data = r.text
+                
+                # 파싱 함수 호출
+                boardContentlist = boardContentlist + boartlisthtml2obj(data)
+                
+                # 마지막 페이지면 루프 탈출
+                if pagenum == pageCountForFeed: 
+                    break
+                
+                # 다음 페이지 조회를 위한 딜레이
+                ransleep = (random.random() * 40) + 2
+                logger.info("sleep for next page: {}".format(ransleep))
+                if burst_process == False:
+                    time.sleep(ransleep)
+            else:
+                logger.error(f"Request failed with status: {r.status_code}")
+
+        except Exception as e:
+            logger.error(f"Error requesting page {pagenum}: {e}")
+            
+    return boardContentlist
+
+def getKtvListOrig(tvGenreName):
     # wiz에서는 browser agnet 헤더를 확인 하므로... 차후에는 환경 설정으로 바꾸도록 하자.
     # agent_string = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36"
-    agent_string = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.70 Safari/537.36"
+    agent_string = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
+
     s = requests.Session()
     s.headers.update({'User-Agent': agent_string})
 
@@ -239,7 +299,7 @@ def getKtvList(tvGenreName):
     for pagenum in range(1, pageCountForFeed + 1):
 
         if pagenum == 1:
-            ransleep = (random.random()*8) + 5
+            ransleep = (random.random()*40) + 5
             logger.info("sleep for first page: {}".format(ransleep))
             if burst_process == False:
                 time.sleep(ransleep)
@@ -270,7 +330,7 @@ def getKtvList(tvGenreName):
             boardContentlist = boardContentlist + boartlisthtml2obj(data.decode())
             # 바깥 for loop 를 설정에 의해 제어하도록 하면서, 이곳의 값도 그 값을 가지고 처리 하도록 변경 해야 한다.
             if pagenum == pageCountForFeed: break
-            ransleep = (random.random()*8) + 2
+            ransleep = (random.random()*40) + 2
             logger.info("sleep for next page: {}".format(ransleep))
             if burst_process == False:
                 time.sleep(ransleep)
@@ -296,7 +356,7 @@ def updatefeed():
 def getLastEpsoideDateAtPlex(season_root, seriesname):
     # season root 디렉토리가 없다면 기본 값을 반환.
     if not os.path.isdir(season_root):
-        logger.warn("Season root path is not exist: {}".format(season_root))
+        logger.warning("Season root path is not exist: {}".format(season_root))
         ## 좀 과거의 값을 반환 하도록 한다.
         ayearago = datetime.now() - relativedelta(years=1)
         return ayearago.strftime("%Y-%m-%d")
@@ -322,7 +382,7 @@ def getLastEpsoideDateAtPlex(season_root, seriesname):
 def getLastEpsoideNumberAtPlex(season_root, seriesname, seasonnumber):
     # season root 디렉토리가 없다면 기본 값을 반환.
     if not os.path.isdir(season_root):
-        logger.warn("Season root path is not exist: {}".format(season_root))
+        logger.warning("Season root path is not exist: {}".format(season_root))
         return 0
 
     # 마지막 번호를 구해서 반환. 파일조차 없다면. 0을 반환.
@@ -406,7 +466,7 @@ def checkNewEpByDate(leid, title):
                         #logger.debug("return new episode date: [{}]".format(dstr))
                         return dstr
             except ValueError as e:
-                #logger.warn("{}".format(e))
+                #logger.warning("{}".format(e))
                 continue
 
     return None
@@ -422,10 +482,10 @@ def checkNewEpByNumber(leid, title):
                     logger.debug("return new episode number: e[{}]".format(val))
                     return val
             except TypeError as e:
-                logger.warn("TypeError word[{}, {}]: {}".format(w, epnum, e))
+                logger.warning("TypeError word[{}, {}]: {}".format(w, epnum, e))
                 continue
             except ValueError as e:
-                logger.warn("ValueError word[{}, {}]: {}".format(w, epnum, e))
+                logger.warning("ValueError word[{}, {}]: {}".format(w, epnum, e))
                 continue
 
             logger.debug("E start word: {}".format(w))
@@ -499,7 +559,7 @@ def updateQueue(tpe, title_keywords):
         # 이미 존재 하는 경우에도 덮어쓰기가 안되므로, 확인한 후 없는 경우에만 쓰거나, 있는 경우 제거 하고 쓰도록 한다.
         ep_dic = queue["ep_dic"]
         if str(tpe["epid"]) in ep_dic:
-            logger.warn("epid {} at {} is already is exist.".format(str(tpe["epid"]), seriesName))
+            logger.warning("epid {} at {} is already is exist.".format(str(tpe["epid"]), seriesName))
             del ep_dic[str(tpe["epid"])]
 
         ep_dic[tpe["epid"]] = cep
@@ -543,6 +603,61 @@ def updateQueue(tpe, title_keywords):
     qf.close()
 
 def downloadFromMagnet(tpe, title_keywords):
+    ed = tpe["ed"]
+    target_url = tpe["url"]
+    
+    logger.info("episode detail page: {}".format(target_url))
+    
+    # 웹사이트 차단 방지를 위한 User-Agent 설정
+    headers = {
+        'User-Agent': "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
+    }
+
+    try:
+        # [변경됨] Proxy 설정 제거 및 requests로 직접 호출
+        # timeout을 설정하여 무한 대기 방지
+        r = requests.get(target_url, headers=headers, timeout=30)
+        logger.debug("Status: {}, Reason: {}".format(r.status_code, r.reason))
+        
+        if r.status_code == 200:
+            # requests의 .text는 자동으로 인코딩을 감지하여 문자열로 반환합니다.
+            soup = BeautifulSoup(r.text, "lxml")
+            soup_bo_v_img_list = soup.find_all("a")
+
+            for soup_bo_v_img in soup_bo_v_img_list:
+                # <a> 태그에 href가 없는 경우를 대비해 .get() 사용 (KeyError 방지)
+                magnet_string = soup_bo_v_img.get('href')
+                
+                if not magnet_string:
+                    continue
+
+                logger.debug("ahtml: {} ".format(soup_bo_v_img))
+                logger.debug("url: {} ".format(magnet_string))
+
+                if magnet_string.startswith('magnet:?'):
+                    logger.info("Start adding magnet: {}({}) s{} e{} : {}".format(
+                        ed["series_name"], ed["release_year"], ed["season_number"], tpe["epid"], tpe["title"]))
+
+                    # transmission-remote 명령어 실행
+                    # 주의: ctru, ctrp 변수는 함수 외부(global)에 있다고 가정합니다.
+                    cmdstr = "transmission-remote --auth=" + ctru + ":" + ctrp + " -a \"" + magnet_string + "\""
+                    
+                    try:
+                        result = subprocess.check_output(cmdstr, shell=True)
+                        logger.info("Complete adding magnet. result: {}".format(result))
+                        
+                        ## queue 정보를 갱신 한다.
+                        updateQueue(tpe, title_keywords)
+                        
+                        # 마그넷을 찾고 추가했으면 보통 더 이상 탐색할 필요가 없으므로 break를 하는 것이 좋으나,
+                        # 원본 코드 로직을 유지하여 계속 탐색하도록 두었습니다. (필요 시 break 추가)
+                        
+                    except subprocess.CalledProcessError as e:
+                        logger.error("Transmission command failed: {}".format(e))
+
+    except Exception as e:
+        logger.error("Failed to download or parse page: {}".format(e))
+def downloadFromMagnetOrig(tpe, title_keywords):
     #logger.debug("(downloadToIncomming)tep:{}".format(tpe))
     ed = tpe["ed"]
     pr = urlparse(tpe["url"])
@@ -662,7 +777,9 @@ def discoveryAndDownload(ed, leid, feedlibs):
     logger.debug("===============================================================================")
 
 def discoveryEpsoidesFromAllFeed(dy, feedlibs):
-    ed = yaml.load(codecs.open(dy, "r", "utf-8"))
+    #ed = yaml.load(codecs.open(dy, "r", "utf-8"))
+    with codecs.open(dy, "r", "utf-8") as f:
+        ed = yaml.safe_load(f)  # 안전 로더 사용
     logger.info("Current series is \"{} ({})\".".format(ed["series_name"], ed["release_year"]))
 
     plexlib_path = ed["plexlib_season_root"]

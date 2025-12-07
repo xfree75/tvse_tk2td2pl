@@ -107,7 +107,7 @@ def unLock():
             logger.error("Unexpected error:", sys.exc_info()[0])
         logger.debug("Complete remove lockfile: {}".format(lockfile))
     else:
-        logger.warn("remove lockfile - lock file is not exist: {}".format(lockfile))
+        logger.warning("remove lockfile - lock file is not exist: {}".format(lockfile))
 
 
 def matchDownloadFile(f, key_words, epid, epsode_id_type, resolution, release_group):
@@ -174,7 +174,7 @@ def checkFolderComplete(f):
 
             # 그럴 가능성은 적지만, 다시 디렉토리가 나온다면 무시.
             if os.path.isdir(mef):
-                logger.warn("Not support recursive path. Current: {}".format(mef))
+                logger.warning("Not support recursive path. Current: {}".format(mef))
                 continue
 
             # 미디어 파일이라면.. 본의 아니게 재귀호출.
@@ -207,7 +207,7 @@ def checkWriteComplete(f):
         else:
             # 현재 파일을 삭제하고, 결국 다시 파일을 생성 한다.
             os.remove(sizef)
-            logger.warn("Download file size is mismatch. prev_size: {} / curr_size: {} / file: {}".format(prev_size, curr_size, f))
+            logger.warning("Download file size is mismatch. prev_size: {} / curr_size: {} / file: {}".format(prev_size, curr_size, f))
 
     f = open(sizef, 'w')
     f.write(str(curr_size))
