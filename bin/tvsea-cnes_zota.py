@@ -225,7 +225,7 @@ def boartlisthtml2obj(htmlstring):
     
     return torrcontentlist
 
-def fetchPage(target_url, use_proxy=True):
+def fetchPage(target_url, use_proxy=False):
     """
     curl_cffi를 사용하여 Cloudflare 등 방화벽을 우회하고 HTML을 가져옵니다.
     """
@@ -719,7 +719,7 @@ def main(argv):
         startLogging()
         loadConfig()
         updatefeed()
-        # findNewEpsoides()
+        findNewEpsoides()
     except OSError as oerr:
         logger.error("OS error: {0}".format(oerr))
         print("OS error: {0}".format(oerr))
