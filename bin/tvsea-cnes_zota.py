@@ -16,6 +16,7 @@ import glob
 import ntpath
 import subprocess
 
+from curl_cffi import requests 
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 from datetime import datetime
@@ -226,18 +227,14 @@ def boartlisthtml2obj(htmlstring):
 
 def fetchPage(target_url, use_proxy=True):
     """
-    지정된 URL에 GET 요청을 보내고 HTML 텍스트를 반환합니다.
-    Burst 방지를 위한 초기 딜레이 및 프록시 설정을 지원합니다.
+    curl_cffi를 사용하여 Cloudflare 등 방화벽을 우회하고 HTML을 가져옵니다.
     """
-    # 1. 브라우저 에이전트 설정
-    agent_string = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
+    # 2. requests.Session() 대신 curl_cffi의 Session 사용
+    # impersonate 옵션으로 실제 크롬 브라우저의 TLS 지문을 완전히 복제합니다.
+    s = requests.Session(impersonate="chrome120")
     
-    s = requests.Session()
-    s.headers.update({'User-Agent': agent_string})
-    
-    # 2. 프록시 설정 (use_proxy가 True일 때만 세션에 적용)
+    # 3. 프록시 설정 (문법 동일)
     if use_proxy:
-        # 기존 변수(proxy_auth_username 등)가 글로벌 또는 상위에 정의되어 있다고 가정합니다.
         proxy_uri = f"http://{proxy_auth_username}:{proxy_auth_password}@{proxy_host}:{proxy_port}"
         s.proxies = {
             "http": proxy_uri,
@@ -245,24 +242,26 @@ def fetchPage(target_url, use_proxy=True):
         }
         logger.debug(f"Using proxy: {proxy_host}:{proxy_port}")
 
-    # 3. Burst 방지 딜레이 (첫 페이지 진입 전 스크립트 딜레이 로직 유지)
-    # ※ 만약 이 함수를 반복문(페이지네이션) 내부에서만 호출하고, 
-    #   첫 페이지 검사를 밖에서 하신다면 이 딜레이 블록은 바깥으로 빼는 것이 좋습니다.
+    # 4. Burst 방지 딜레이 로직
     if "page=1" in target_url or "page=" not in target_url:
-        ransleep = (random.random() * 40) + 5
-        logger.info(f"sleep for first page: {ransleep}")
-        if not burst_process:
-            time.sleep(ransleep)
+        try:
+            is_burst = globals().get('burst_process', False) if 'burst_process' not in locals() else burst_process
+            if not is_burst:
+                ransleep = (random.random() * 40) + 5
+                logger.info(f"sleep for first page: {ransleep:.2f} seconds")
+                time.sleep(ransleep)
+        except Exception as delay_err:
+            logger.warning(f"Delay logic warning: {delay_err}")
 
     logger.debug(f"Current page URL: {target_url}")
     
     try:
-        # 4. 요청 보내기 (타임아웃 30초 설정)
+        # 5. 요청 보내기 (requests와 문법 완전히 동일)
         r = s.get(target_url, timeout=30)
         logger.debug(f"Status: {r.status_code}, Reason: {r.reason}")
         
         if r.status_code == 200:
-            return r.text  # 자동으로 디코딩된 문자열 반환
+            return r.text
         else:
             logger.error(f"Request failed with status: {r.status_code}")
             return None
