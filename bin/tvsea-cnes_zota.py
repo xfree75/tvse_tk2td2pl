@@ -271,7 +271,7 @@ def fetchPage(target_url, use_proxy=True):
         return None
 
 def getKtvList(tvGenreName):
-    boardBaseUrl = f"https://{base_dn}:443/t/{tvGenreName}"
+    boardBaseUrl = f"https://{base_dn}/t/{tvGenreName}"
     boardContentlist = []
     pageCountForFeed = int(pages)
     
