@@ -224,7 +224,7 @@ def boartlisthtml2obj(htmlstring):
     
     return torrcontentlist
 
-def fetchPage(target_url, use_proxy=False):
+def fetchPage(target_url, use_proxy=True):
     """
     지정된 URL에 GET 요청을 보내고 HTML 텍스트를 반환합니다.
     Burst 방지를 위한 초기 딜레이 및 프록시 설정을 지원합니다.
@@ -271,7 +271,7 @@ def fetchPage(target_url, use_proxy=False):
         logger.error(f"Error requesting page {target_url}: {e}")
         return None
 
-def getKtvList(tvGenreName, use_proxy=False):
+def getKtvList(tvGenreName):
     boardBaseUrl = f"https://{base_dn}:443/t/{tvGenreName}"
     boardContentlist = []
     pageCountForFeed = int(pages)
@@ -280,7 +280,7 @@ def getKtvList(tvGenreName, use_proxy=False):
         target_url = f"{boardBaseUrl}?page={pagenum}"
         
         # 공통 함수 호출 (프록시 사용 여부 전달)
-        html_data = fetchPage(target_url, use_proxy=use_proxy)
+        html_data = fetchPage(target_url)
         
         if html_data:
             # 파싱 후 리스트에 추가
@@ -566,7 +566,7 @@ def updateQueue(tpe, title_keywords):
     qf.write(queueStr)
     qf.close()
 
-def downloadFromMagnet(tpe, title_keywords, use_proxy=False):
+def downloadFromMagnet(tpe, title_keywords):
     ed = tpe["ed"]
     target_url = tpe["url"]
     
@@ -574,7 +574,7 @@ def downloadFromMagnet(tpe, title_keywords, use_proxy=False):
 
     # 1. 공통 함수를 사용하여 HTML 데이터 가져오기
     # (use_proxy 인자를 전달하여 필요한 경우 프록시 적용 가능)
-    html_data = fetchPage(target_url, use_proxy=use_proxy)
+    html_data = fetchPage(target_url)
     
     if not html_data:
         logger.error(f"Failed to fetch page data from: {target_url}")
