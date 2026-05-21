@@ -16,6 +16,7 @@ import glob
 import ntpath
 import subprocess
 
+from curl_cffi import requests 
 from urllib.parse import urlparse
 from bs4 import BeautifulSoup
 from datetime import datetime
@@ -224,116 +225,78 @@ def boartlisthtml2obj(htmlstring):
     
     return torrcontentlist
 
-def getKtvList(tvGenreName):
-    # wiz에서는 browser agnet 헤더를 확인 하므로...
-    agent_string = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
-
-    # 세션 생성 및 헤더 설정
-    s = requests.Session()
-    s.headers.update({'User-Agent': agent_string})
-
-    # genreName으로 baseUrl을 담자. (원본 코드의 /t/ 경로 포함)
-    boardBaseUrl = "https://" + base_dn + ":443/t/" + tvGenreName
+def fetchPage(target_url, use_proxy=False):
+    """
+    curl_cffi를 사용하여 Cloudflare 등 방화벽을 우회하고 HTML을 가져옵니다.
+    """
+    # 2. requests.Session() 대신 curl_cffi의 Session 사용
+    # impersonate 옵션으로 실제 크롬 브라우저의 TLS 지문을 완전히 복제합니다.
+    s = requests.Session(impersonate="chrome120")
     
-    boardContentlist = []
-    pageCountForFeed = int(pages)
-    
-    for pagenum in range(1, pageCountForFeed + 1):
+    # 3. 프록시 설정 (문법 동일)
+    if use_proxy:
+        proxy_uri = f"http://{proxy_auth_username}:{proxy_auth_password}@{proxy_host}:{proxy_port}"
+        s.proxies = {
+            "http": proxy_uri,
+            "https": proxy_uri
+        }
+        logger.debug(f"Using proxy: {proxy_host}:{proxy_port}")
 
-        # 1페이지 진입 전 딜레이 (Burst 방지)
-        if pagenum == 1:
-            ransleep = (random.random() * 40) + 5
-            logger.info("sleep for first page: {}".format(ransleep))
-            if burst_process == False:
-                time.sleep(ransleep)
-        
-        # 요청할 전체 URL 구성
-        target_url = boardBaseUrl + "?page=" + str(pagenum)
-        logger.debug("Current page URL: {}".format(target_url))
-        
+    # 4. Burst 방지 딜레이 로직
+    if "page=1" in target_url or "page=" not in target_url:
         try:
-            # [변경됨] Proxy 설정 없이 requests 세션으로 직접 GET 요청
-            # timeout을 설정하여 무한 대기 방지
-            r = s.get(target_url, timeout=30)
-            logger.debug("Status: {}, Reason: {}".format(r.status_code, r.reason))
+            is_burst = globals().get('burst_process', False) if 'burst_process' not in locals() else burst_process
+            if not is_burst:
+                ransleep = (random.random() * 40) + 5
+                logger.info(f"sleep for first page: {ransleep:.2f} seconds")
+                time.sleep(ransleep)
+        except Exception as delay_err:
+            logger.warning(f"Delay logic warning: {delay_err}")
+
+    logger.debug(f"Current page URL: {target_url}")
+    
+    try:
+        # 5. 요청 보내기 (requests와 문법 완전히 동일)
+        r = s.get(target_url, timeout=30)
+        logger.debug(f"Status: {r.status_code}, Reason: {r.reason}")
+        
+        if r.status_code == 200:
+            return r.text
+        else:
+            logger.error(f"Request failed with status: {r.status_code}")
+            return None
             
-            if r.status_code == 200:
-                # requests의 .text는 자동으로 디코딩된 문자열을 반환합니다.
-                data = r.text
-                
-                # 파싱 함수 호출
-                boardContentlist = boardContentlist + boartlisthtml2obj(data)
-                
-                # 마지막 페이지면 루프 탈출
-                if pagenum == pageCountForFeed: 
-                    break
-                
-                # 다음 페이지 조회를 위한 딜레이
-                ransleep = (random.random() * 40) + 2
-                logger.info("sleep for next page: {}".format(ransleep))
-                if burst_process == False:
-                    time.sleep(ransleep)
-            else:
-                logger.error(f"Request failed with status: {r.status_code}")
+    except Exception as e:
+        logger.error(f"Error requesting page {target_url}: {e}")
+        return None
 
-        except Exception as e:
-            logger.error(f"Error requesting page {pagenum}: {e}")
-            
-    return boardContentlist
-
-def getKtvListOrig(tvGenreName):
-    # wiz에서는 browser agnet 헤더를 확인 하므로... 차후에는 환경 설정으로 바꾸도록 하자.
-    # agent_string = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36"
-    agent_string = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
-
-    s = requests.Session()
-    s.headers.update({'User-Agent': agent_string})
-
-    # genreName으로 baseUrl을 담자.
-    boardBaseUrl = "https://" + base_dn + ":443/t/" + tvGenreName
-    # page를 path로 지정 하므로, 2page부터 사용할 pagePath를 담을 문자열.
-    boardPagePath = ""
-    # 목록을 파싱하여 생성한 object 목록들을 추가할 array.
+def getKtvList(tvGenreName):
+    boardBaseUrl = f"https://{base_dn}/t/{tvGenreName}"
     boardContentlist = []
     pageCountForFeed = int(pages)
+    
     for pagenum in range(1, pageCountForFeed + 1):
-
-        if pagenum == 1:
-            ransleep = (random.random()*40) + 5
-            logger.info("sleep for first page: {}".format(ransleep))
-            if burst_process == False:
+        target_url = f"{boardBaseUrl}?page={pagenum}"
+        
+        # 공통 함수 호출 (프록시 사용 여부 전달)
+        html_data = fetchPage(target_url)
+        
+        if html_data:
+            # 파싱 후 리스트에 추가
+            boardContentlist += boartlisthtml2obj(html_data)
+            
+            # 마지막 페이지면 루프 탈출
+            if pagenum == pageCountForFeed: 
+                break
+            
+            # 다음 페이지 조회를 위한 딜레이
+            ransleep = (random.random() * 40) + 2
+            logger.info(f"sleep for next page: {ransleep}")
+            if not burst_process:
                 time.sleep(ransleep)
-        
-        boardPagePath = "?page=" + str(pagenum)
-        
-        # 2020.01.19(토) http proxy(smart dns proxy) 추가.
-        proxy_uri = "http://" + proxy_auth_username + ":" + proxy_auth_password + "@" + proxy_host + ":" + proxy_port
-        url = urlparse(proxy_uri)
-        conn = http.client.HTTPSConnection(url.hostname, url.port)
-        headers = {}
-        if url.username and url.password:
-            auth = '%s:%s' % (url.username, url.password)
-            #encauth = str(base64.b64encode(auth.encode())).replace("b'", "").replace("'", "")
-            headers['Proxy-Authorization'] = 'Basic ' + str(base64.b64encode(auth.encode())).replace("b'", "").replace("'", "")
-        
-        pr = urlparse(boardBaseUrl + boardPagePath)
-        logger.debug("Current page URL: {}".format(pr.geturl()))
-        conn.set_tunnel(pr.hostname, pr.port, headers)
-        conn.request("GET", pr.path + "?" + pr.query)
-        r = conn.getresponse()
-        logger.debug("Status: {}, Reason: {}".format(r.status, r.reason))
-        
-        if r.status == 200:
-            data = r.read()
-            #logger.info("Data : {}".format(data))
-            #logger.info("Data : {}".format(data.decode()))
-            boardContentlist = boardContentlist + boartlisthtml2obj(data.decode())
-            # 바깥 for loop 를 설정에 의해 제어하도록 하면서, 이곳의 값도 그 값을 가지고 처리 하도록 변경 해야 한다.
-            if pagenum == pageCountForFeed: break
-            ransleep = (random.random()*40) + 2
-            logger.info("sleep for next page: {}".format(ransleep))
-            if burst_process == False:
-                time.sleep(ransleep)
+        else:
+            # 요청 실패 시 대처 (필요에 따라 break 또는 continue)
+            logger.warning(f"Skipping page {pagenum} due to fetch error.")
             
     return boardContentlist
 
@@ -606,113 +569,50 @@ def downloadFromMagnet(tpe, title_keywords):
     ed = tpe["ed"]
     target_url = tpe["url"]
     
-    logger.info("episode detail page: {}".format(target_url))
+    logger.info(f"episode detail page: {target_url}")
+
+    # 1. 공통 함수를 사용하여 HTML 데이터 가져오기
+    # (use_proxy 인자를 전달하여 필요한 경우 프록시 적용 가능)
+    html_data = fetchPage(target_url)
     
-    # 웹사이트 차단 방지를 위한 User-Agent 설정
-    headers = {
-        'User-Agent': "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
-    }
+    if not html_data:
+        logger.error(f"Failed to fetch page data from: {target_url}")
+        return
 
     try:
-        # [변경됨] Proxy 설정 제거 및 requests로 직접 호출
-        # timeout을 설정하여 무한 대기 방지
-        r = requests.get(target_url, headers=headers, timeout=30)
-        logger.debug("Status: {}, Reason: {}".format(r.status_code, r.reason))
-        
-        if r.status_code == 200:
-            # requests의 .text는 자동으로 인코딩을 감지하여 문자열로 반환합니다.
-            soup = BeautifulSoup(r.text, "lxml")
-            soup_bo_v_img_list = soup.find_all("a")
-
-            for soup_bo_v_img in soup_bo_v_img_list:
-                # <a> 태그에 href가 없는 경우를 대비해 .get() 사용 (KeyError 방지)
-                magnet_string = soup_bo_v_img.get('href')
-                
-                if not magnet_string:
-                    continue
-
-                logger.debug("ahtml: {} ".format(soup_bo_v_img))
-                logger.debug("url: {} ".format(magnet_string))
-
-                if magnet_string.startswith('magnet:?'):
-                    logger.info("Start adding magnet: {}({}) s{} e{} : {}".format(
-                        ed["series_name"], ed["release_year"], ed["season_number"], tpe["epid"], tpe["title"]))
-
-                    # transmission-remote 명령어 실행
-                    # 주의: ctru, ctrp 변수는 함수 외부(global)에 있다고 가정합니다.
-                    cmdstr = "transmission-remote --auth=" + ctru + ":" + ctrp + " -a \"" + magnet_string + "\""
-                    
-                    try:
-                        result = subprocess.check_output(cmdstr, shell=True)
-                        logger.info("Complete adding magnet. result: {}".format(result))
-                        
-                        ## queue 정보를 갱신 한다.
-                        updateQueue(tpe, title_keywords)
-                        
-                        # 마그넷을 찾고 추가했으면 보통 더 이상 탐색할 필요가 없으므로 break를 하는 것이 좋으나,
-                        # 원본 코드 로직을 유지하여 계속 탐색하도록 두었습니다. (필요 시 break 추가)
-                        
-                    except subprocess.CalledProcessError as e:
-                        logger.error("Transmission command failed: {}".format(e))
-
-    except Exception as e:
-        logger.error("Failed to download or parse page: {}".format(e))
-def downloadFromMagnetOrig(tpe, title_keywords):
-    #logger.debug("(downloadToIncomming)tep:{}".format(tpe))
-    ed = tpe["ed"]
-    pr = urlparse(tpe["url"])
-    logger.info("epsode detail page: {}".format(tpe["url"]))
-    logger.debug("parser result:{}".format(pr))
-
-    '''conn = http.client.HTTPSConnection(pr.netloc)
-    conn.request("GET", pr.path)
-    r1 = conn.getresponse()
-    logger.debug("Status: {}, Reason: {}".format(r1.status, r1.reason))'''
-    
-    proxy_uri = "http://" + proxy_auth_username + ":" + proxy_auth_password + "@" + proxy_host + ":" + proxy_port
-    proxy_url = urlparse(proxy_uri)
-    conn = http.client.HTTPSConnection(proxy_url.hostname, proxy_url.port)
-    headers = {}
-    if proxy_url.username and proxy_url.password:
-        auth = '%s:%s' % (proxy_url.username, proxy_url.password)
-        #encauth = str(base64.b64encode(auth.encode())).replace("b'", "").replace("'", "")
-        headers['Proxy-Authorization'] = 'Basic ' + str(base64.b64encode(auth.encode())).replace("b'", "").replace("'", "")
-    
-    #pr = urlparse(pr.path)
-    conn.set_tunnel(pr.hostname, pr.port, headers)
-    conn.request("GET", pr.path + "?" + pr.query)
-    r1 = conn.getresponse()
-    logger.debug("Status: {}, Reason: {}".format(r1.status, r1.reason))
-    
-    if r1.status == 200:
-        data2 = r1.read()
-        logger.debug("content html: {}".format(data2.decode()))
-        soup = BeautifulSoup(data2, "lxml")
+        # 2. BeautifulSoup 파싱
+        soup = BeautifulSoup(html_data, "lxml")
         soup_bo_v_img_list = soup.find_all("a")
-        #logger.debug("A elements: {}".format(soup_bo_v_img_list))
 
         for soup_bo_v_img in soup_bo_v_img_list:
-
-            try:
-                magnet_string = soup_bo_v_img['href']
-                #logger.debug("input value: {} / {}".format(soup_bo_v_img, magnet_string))
-                logger.debug("ahtml: {} ".format(soup_bo_v_img))
-                logger.debug("url: {} ".format(magnet_string))
-                if magnet_string.startswith('magnet:?'):
-                    logger.info("Start adding magnet: {}({}) s{} e{} : {}".format(ed["series_name"], ed["release_year"], ed["season_number"], tpe["epid"], tpe["title"]))
-
-                    cmdstr = "transmission-remote --auth=" + ctru + ":" + ctrp + " -a \"" + magnet_string + "\""
-                    result = subprocess.check_output(cmdstr, shell=True)
-                    logger.info("Complete adding magnet. result: {}".format(result))
-
-                    ## queue 정보를 갱신 한다. 시리즈 이름. 다운로드 추가 된 에피소드 정보.
-                    updateQueue(tpe, title_keywords)
-
-            except KeyError as kerr:
-                logger.debug("KeyError cause by none value. html: {}".format(soup_bo_v_img))
+            # <a> 태그에 href가 없는 경우를 대비해 .get() 사용 (KeyError 방지)
+            magnet_string = soup_bo_v_img.get('href')
+            
+            if not magnet_string:
                 continue
 
-    conn.close()
+            logger.debug(f"ahtml: {soup_bo_v_img}")
+            logger.debug(f"url: {magnet_string}")
+
+            # 3. 마그넷 링크 확인 및 다운로드 처리
+            if magnet_string.startswith('magnet:?'):
+                logger.info(f"Start adding magnet: {ed['series_name']}({ed['release_year']}) s{ed['season_number']} e{tpe['epid']} : {tpe['title']}")
+
+                # transmission-remote 명령어 구성 (f-string 사용으로 가독성 향상)
+                cmdstr = f'transmission-remote --auth={ctru}:{ctrp} -a "{magnet_string}"'
+                
+                try:
+                    result = subprocess.check_output(cmdstr, shell=True)
+                    logger.info(f"Complete adding magnet. result: {result}")
+                    
+                    # 큐 정보 갱신
+                    updateQueue(tpe, title_keywords)
+                    
+                except subprocess.CalledProcessError as e:
+                    logger.error(f"Transmission command failed: {e}")
+
+    except Exception as e:
+        logger.error(f"Failed to parse page or process magnet: {e}")
 
 def discoveryAndDownload(ed, leid, feedlibs):
     feed = ed["feed"]
